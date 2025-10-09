@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Box, Typography, Accordion, AccordionSummary, AccordionDetails, Paper, IconButton, TextField } from '@mui/material';
-import { ExpandMore, SmartToy, Memory, IntegrationInstructions, Security, CheckCircle, Notifications, CallSplit, Edit, Save, PlayArrow, Webhook, Loop, Code, Transform, Output, Psychology, Settings } from '@mui/icons-material';
+import { Box, Typography, Accordion, AccordionSummary, AccordionDetails, Paper, IconButton, TextField, Tooltip } from '@mui/material';
+import { ExpandMore, SmartToy, Memory, IntegrationInstructions, Security, CheckCircle, Notifications, CallSplit, Edit, Save, PlayArrow, Webhook, Loop, Code, Transform, Output, Psychology, Settings, InfoOutlined } from '@mui/icons-material';
 
 const componentCategories = [
   {
     name: 'Triggers',
+    description: 'Start your workflow with manual, webhook, schedule, or file upload triggers',
     items: [
       { id: 'manual-trigger', label: 'Execute Workflow', icon: <PlayArrow />, type: 'trigger' },
       { id: 'webhook', label: 'Webhook Trigger', icon: <Webhook />, type: 'trigger' },
@@ -13,6 +14,7 @@ const componentCategories = [
   },
   {
     name: 'AI Agents',
+    description: 'Execute LLM tasks like analysis, generation, classification, and evaluation',
     items: [
       { id: 'ai-agent', label: 'AI Agent', icon: <SmartToy />, type: 'agent' },
       { id: 'critic-agent', label: 'Critic Agent', icon: <Psychology />, type: 'agent' },
@@ -23,6 +25,7 @@ const componentCategories = [
   },
   {
     name: 'Chat Models',
+    description: 'Direct LLM model calls with OpenAI, Anthropic, or custom providers',
     items: [
       { id: 'openai-chat', label: 'OpenAI Chat Model', icon: <SmartToy />, type: 'chat-model' },
       { id: 'anthropic-chat', label: 'Anthropic Chat Model', icon: <SmartToy />, type: 'chat-model' },
@@ -31,6 +34,7 @@ const componentCategories = [
   },
   {
     name: 'Loop & Iteration',
+    description: 'Process lists item-by-item, in batches, or aggregate results',
     items: [
       { id: 'loop-items', label: 'Loop Over Items', icon: <Loop />, type: 'loop' },
       { id: 'split-batch', label: 'Split in Batches', icon: <CallSplit />, type: 'loop' },
@@ -39,6 +43,7 @@ const componentCategories = [
   },
   {
     name: 'Logic & Conditionals',
+    description: 'Branch workflow based on conditions, switch cases, or merge paths',
     items: [
       { id: 'if-condition', label: 'If', icon: <CallSplit />, type: 'conditional' },
       { id: 'switch', label: 'Switch', icon: <CallSplit />, type: 'conditional' },
@@ -47,6 +52,7 @@ const componentCategories = [
   },
   {
     name: 'Data Transformation',
+    description: 'Clean, filter, sort, and merge data before processing',
     items: [
       { id: 'edit-fields', label: 'Edit Fields', icon: <Edit />, type: 'transform' },
       { id: 'set-values', label: 'Set Values', icon: <Settings />, type: 'transform' },
@@ -56,6 +62,7 @@ const componentCategories = [
   },
   {
     name: 'Output & Parsers',
+    description: 'Format results, extract structured data, or run custom code',
     items: [
       { id: 'code-node', label: 'Code', icon: <Code />, type: 'output' },
       { id: 'structured-parser', label: 'Structured Output Parser', icon: <Output />, type: 'output' },
@@ -64,6 +71,7 @@ const componentCategories = [
   },
   {
     name: 'Memory & Storage',
+    description: 'Save and retrieve data from databases, cache, or vector stores',
     items: [
       { id: 'postgres-memory', label: 'Postgres Chat Memory', icon: <Memory />, type: 'memory' },
       { id: 'redis-memory', label: 'Redis Memory', icon: <Memory />, type: 'memory' },
@@ -72,6 +80,7 @@ const componentCategories = [
   },
   {
     name: 'Compliance Tools',
+    description: 'Validate evidence, check policies, score risk, and log audit trails',
     items: [
       { id: 'evidence-check', label: 'Evidence Validator', icon: <CheckCircle />, type: 'compliance' },
       { id: 'policy-check', label: 'Policy Checker', icon: <Security />, type: 'compliance' },
@@ -81,6 +90,7 @@ const componentCategories = [
   },
   {
     name: 'Integrations',
+    description: 'Connect to Slack, Jira, GitHub, AWS, and other external services',
     items: [
       { id: 'slack', label: 'Slack', icon: <IntegrationInstructions />, type: 'integration' },
       { id: 'jira', label: 'Jira', icon: <IntegrationInstructions />, type: 'integration' },
@@ -128,9 +138,24 @@ export default function ComponentPalette({ onDragStart }: ComponentPaletteProps)
         borderRight: '1px solid rgba(255, 255, 255, 0.1)',
         p: 2,
         overflowY: 'auto',
+        overflowX: 'hidden',
         height: '100%',
+        maxHeight: '100%',
         position: 'relative',
         zIndex: 1,
+        '&::-webkit-scrollbar': {
+          width: '8px',
+        },
+        '&::-webkit-scrollbar-track': {
+          bgcolor: 'rgba(255, 255, 255, 0.05)',
+        },
+        '&::-webkit-scrollbar-thumb': {
+          bgcolor: 'rgba(255, 255, 255, 0.3)',
+          borderRadius: '4px',
+          '&:hover': {
+            bgcolor: 'rgba(255, 255, 255, 0.4)',
+          },
+        },
       }}
     >
       <Typography variant="subtitle2" sx={{ color: 'white', mb: 2, fontWeight: 600 }}>
@@ -157,9 +182,14 @@ export default function ComponentPalette({ onDragStart }: ComponentPaletteProps)
               px: 1,
             }}
           >
-            <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.9)', fontWeight: 500 }}>
-              {category.name}
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+              <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.9)', fontWeight: 500 }}>
+                {category.name}
+              </Typography>
+              <Tooltip title={category.description} arrow placement="right">
+                <InfoOutlined sx={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.4)', cursor: 'help' }} />
+              </Tooltip>
+            </Box>
           </AccordionSummary>
           <AccordionDetails sx={{ p: 0, pl: 1 }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>

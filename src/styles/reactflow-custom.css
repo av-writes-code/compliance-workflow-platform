@@ -1,0 +1,27 @@
+/* Custom React Flow styles to ensure edges appear above nodes */
+
+.react-flow__edge {
+  z-index: 1000 !important;
+}
+
+.react-flow__edge-path {
+  z-index: 1000 !important;
+}
+
+.react-flow__connection-path {
+  z-index: 1000 !important;
+}
+
+.react-flow__node {
+  z-index: 1 !important;
+}
+
+/* Ensure selected edges are on top */
+.react-flow__edge.selected {
+  z-index: 1001 !important;
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: #818cf8 !important;
+  stroke-width: 2.5 !important;
+}

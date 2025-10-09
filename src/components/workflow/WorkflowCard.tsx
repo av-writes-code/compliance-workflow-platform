@@ -5,12 +5,14 @@ interface WorkflowCardProps {
   title: string;
   description: string;
   variant?: 'primary' | 'default';
+  onClick?: () => void;
 }
 
-export default function WorkflowCard({ title, description, variant = 'default' }: WorkflowCardProps) {
+export default function WorkflowCard({ title, description, variant = 'default', onClick }: WorkflowCardProps) {
   return (
     <Paper
       elevation={3}
+      onClick={onClick}
       sx={{
         p: 3,
         minWidth: 280,

@@ -1,9 +1,11 @@
 import { Routes, Route } from 'react-router-dom';
-import { Box, AppBar, Toolbar, Typography, Tabs, Tab } from '@mui/material';
+import { Box, AppBar, Toolbar, Typography, Tabs, Tab, Chip } from '@mui/material';
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { Science, Rocket } from '@mui/icons-material';
 import Dashboard from './pages/Dashboard';
-import WorkflowCanvas from './pages/WorkflowCanvas';
+import PrototypeStation from './pages/PrototypeStation';
+import ProductionEnvironment from './pages/ProductionEnvironment';
 import EvidenceBrowser from './pages/EvidenceBrowser';
 import ApprovalWorkflows from './pages/ApprovalWorkflows';
 import RegulatoryMapping from './pages/RegulatoryMapping';
@@ -14,6 +16,17 @@ function App() {
 
   const currentTab = location.pathname === '/' ? '/dashboard' : location.pathname;
 
+  // Determine environment badge
+  const getEnvironmentBadge = () => {
+    if (location.pathname === '/prototype') {
+      return <Chip icon={<Science />} label="Prototype" size="small" color="success" />;
+    }
+    if (location.pathname === '/production') {
+      return <Chip icon={<Rocket />} label="Production" size="small" color="primary" />;
+    }
+    return null;
+  };
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <AppBar position="static" elevation={1}>
@@ -21,6 +34,7 @@ function App() {
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
             Compliance Workflow Platform
           </Typography>
+          {getEnvironmentBadge()}
         </Toolbar>
         <Tabs
           value={currentTab}
@@ -30,7 +44,8 @@ function App() {
           indicatorColor="primary"
         >
           <Tab label="Dashboard" value="/dashboard" />
-          <Tab label="Workflows" value="/workflows" />
+          <Tab icon={<Science />} iconPosition="start" label="Prototype" value="/prototype" />
+          <Tab icon={<Rocket />} iconPosition="start" label="Production" value="/production" />
           <Tab label="Evidence" value="/evidence" />
           <Tab label="Approvals" value="/approvals" />
           <Tab label="Mapping" value="/mapping" />
@@ -41,7 +56,8 @@ function App() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/workflows" element={<WorkflowCanvas />} />
+          <Route path="/prototype" element={<PrototypeStation />} />
+          <Route path="/production" element={<ProductionEnvironment />} />
           <Route path="/evidence" element={<EvidenceBrowser />} />
           <Route path="/approvals" element={<ApprovalWorkflows />} />
           <Route path="/mapping" element={<RegulatoryMapping />} />

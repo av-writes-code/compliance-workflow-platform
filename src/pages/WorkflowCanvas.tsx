@@ -1,31 +1,38 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import ReactFlow, {
   Node,
   Edge,
   Controls,
   Background,
-  MiniMap,
   addEdge,
+  reconnectEdge,
   Connection,
   useNodesState,
   useEdgesState,
   NodeTypes,
   ReactFlowInstance,
   EdgeTypes,
-  MarkerType,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
+import '../styles/reactflow-custom.css';
 import { Box, Drawer, Typography, TextField, Button, IconButton, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
 import { Close, Delete } from '@mui/icons-material';
 import WorkflowCard from '../components/workflow/WorkflowCard';
 import ComponentPalette from '../components/workflow/ComponentPalette';
-import { StandardNode, DecisionNode, CircularNode } from '../components/workflow/CustomNode';
+import { StandardNode, DecisionNode, CircularNode, GhostNode } from '../components/workflow/CustomNode';
+import EditableEdge from '../components/workflow/EditableEdge';
 import { SmartToy, Memory, IntegrationInstructions } from '@mui/icons-material';
 
+// Define nodeTypes and edgeTypes outside component to prevent recreation
 const nodeTypes: NodeTypes = {
   standard: StandardNode,
   decision: DecisionNode,
   circular: CircularNode,
+  ghost: GhostNode,
+};
+
+const edgeTypes: EdgeTypes = {
+  editable: EditableEdge,
 };
 
 const initialNodes: Node[] = [
@@ -33,195 +40,224 @@ const initialNodes: Node[] = [
   {
     id: '1',
     type: 'standard',
-    position: { x: 50, y: 100 },
+    position: { x: 50, y: 150 },
     data: {
       label: 'Execute Workflow',
       subtitle: 'manual trigger',
-      icon: <SmartToy />,
-      showSubNodes: false,
+      icon: 'SmartToy',
     },
   },
-  // AI Agent with sub-nodes
+  // AI Agent
   {
     id: '2',
     type: 'standard',
-    position: { x: 300, y: 100 },
+    position: { x: 320, y: 150 },
     data: {
       label: 'AI Agent',
-      subtitle: 'Tools Agent',
-      icon: <SmartToy />,
-      showSubNodes: true,
-    },
-  },
-  {
-    id: '2-sub-1',
-    type: 'circular',
-    position: { x: 250, y: 230 },
-    data: {
-      label: 'Chat Model',
-      icon: <SmartToy fontSize="small" />,
-    },
-  },
-  {
-    id: '2-sub-2',
-    type: 'circular',
-    position: { x: 340, y: 230 },
-    data: {
-      label: 'Memory',
-      icon: <Memory fontSize="small" />,
+      subtitle: 'tools agent',
+      icon: 'SmartToy',
     },
   },
   // Loop node
   {
     id: '3',
     type: 'standard',
-    position: { x: 550, y: 100 },
+    position: { x: 590, y: 150 },
     data: {
       label: 'Loop Over Items',
       subtitle: 'iteration',
-      icon: <Memory />,
+      icon: 'Memory',
       showSubNodes: false,
     },
   },
-  // Edit Fields
+  // Decision node
   {
     id: '4',
-    type: 'standard',
-    position: { x: 800, y: 100 },
+    type: 'decision',
+    position: { x: 880, y: 120 },
     data: {
-      label: 'Edit Fields',
-      subtitle: 'transform',
-      icon: <Memory />,
-      showSubNodes: false,
+      label: 'If',
     },
   },
-  // If condition
+  // Integration
   {
     id: '5',
     type: 'standard',
-    position: { x: 1050, y: 100 },
+    position: { x: 1100, y: 150 },
     data: {
-      label: 'If',
-      subtitle: 'conditional',
-      icon: <Memory />,
-      showSubNodes: false,
-    },
-  },
-  // Critic Agent
-  {
-    id: '6',
-    type: 'standard',
-    position: { x: 150, y: 350 },
-    data: {
-      label: 'Critic Agent',
-      subtitle: 'review',
-      icon: <SmartToy />,
-      showSubNodes: true,
-    },
-  },
-  {
-    id: '6-sub-1',
-    type: 'circular',
-    position: { x: 100, y: 480 },
-    data: {
-      label: 'Chat Model',
-      icon: <SmartToy fontSize="small" />,
-    },
-  },
-  {
-    id: '6-sub-2',
-    type: 'circular',
-    position: { x: 190, y: 480 },
-    data: {
-      label: 'Memory',
-      icon: <Memory fontSize="small" />,
-    },
-  },
-  // Evaluation Agent
-  {
-    id: '7',
-    type: 'standard',
-    position: { x: 400, y: 350 },
-    data: {
-      label: 'Evaluation Agent',
-      subtitle: 'assess',
-      icon: <SmartToy />,
-      showSubNodes: true,
-    },
-  },
-  // Code node
-  {
-    id: '8',
-    type: 'standard',
-    position: { x: 650, y: 350 },
-    data: {
-      label: 'Code',
-      subtitle: 'custom logic',
-      icon: <Memory />,
-      showSubNodes: false,
-    },
-  },
-  // Structured Output Parser
-  {
-    id: '9',
-    type: 'standard',
-    position: { x: 900, y: 350 },
-    data: {
-      label: 'Structured Output Parser',
-      subtitle: 'format output',
-      icon: <Memory />,
-      showSubNodes: false,
+      label: 'Slack',
+      subtitle: 'integration',
+      icon: 'IntegrationInstructions',
     },
   },
 ];
 
 const initialEdges: Edge[] = [
-  // Main flow
-  { id: 'e1-2', source: '1', target: '2', animated: true, type: 'smoothstep', style: { stroke: '#6366f1', strokeWidth: 2 }, markerEnd: { type: MarkerType.ArrowClosed, color: '#6366f1' } },
-  { id: 'e2-3', source: '2', target: '3', animated: true, type: 'smoothstep', style: { stroke: '#6366f1', strokeWidth: 2 }, markerEnd: { type: MarkerType.ArrowClosed, color: '#6366f1' } },
-  { id: 'e3-4', source: '3', target: '4', animated: true, type: 'smoothstep', style: { stroke: '#6366f1', strokeWidth: 2 }, markerEnd: { type: MarkerType.ArrowClosed, color: '#6366f1' } },
-  { id: 'e4-5', source: '4', target: '5', animated: true, type: 'smoothstep', style: { stroke: '#6366f1', strokeWidth: 2 }, markerEnd: { type: MarkerType.ArrowClosed, color: '#6366f1' } },
-
-  // AI Agent sub-connections
-  { id: 'e2-sub1', source: '2', sourceHandle: 'sub-0', target: '2-sub-1', type: 'straight', style: { strokeDasharray: '5 5', stroke: 'rgba(255, 255, 255, 0.3)' } },
-  { id: 'e2-sub2', source: '2', sourceHandle: 'sub-1', target: '2-sub-2', type: 'straight', style: { strokeDasharray: '5 5', stroke: 'rgba(255, 255, 255, 0.3)' } },
-
-  // Loop connections to agents
-  { id: 'e3-6', source: '3', target: '6', animated: true, type: 'smoothstep', style: { stroke: '#6366f1', strokeWidth: 2 }, markerEnd: { type: MarkerType.ArrowClosed, color: '#6366f1' } },
-  { id: 'e6-7', source: '6', target: '7', animated: true, type: 'smoothstep', style: { stroke: '#6366f1', strokeWidth: 2 }, markerEnd: { type: MarkerType.ArrowClosed, color: '#6366f1' } },
-  { id: 'e7-8', source: '7', target: '8', animated: true, type: 'smoothstep', style: { stroke: '#6366f1', strokeWidth: 2 }, markerEnd: { type: MarkerType.ArrowClosed, color: '#6366f1' } },
-  { id: 'e8-9', source: '8', target: '9', animated: true, type: 'smoothstep', style: { stroke: '#6366f1', strokeWidth: 2 }, markerEnd: { type: MarkerType.ArrowClosed, color: '#6366f1' } },
-
-  // Critic Agent sub-connections
-  { id: 'e6-sub1', source: '6', sourceHandle: 'sub-0', target: '6-sub-1', type: 'straight', style: { strokeDasharray: '5 5', stroke: 'rgba(255, 255, 255, 0.3)' } },
-  { id: 'e6-sub2', source: '6', sourceHandle: 'sub-1', target: '6-sub-2', type: 'straight', style: { strokeDasharray: '5 5', stroke: 'rgba(255, 255, 255, 0.3)' } },
-
-  // Back loop
-  { id: 'e9-1', source: '9', target: '1', animated: false, type: 'smoothstep', style: { stroke: 'rgba(255, 255, 255, 0.3)', strokeWidth: 2 }, markerEnd: { type: MarkerType.ArrowClosed, color: 'rgba(255, 255, 255, 0.3)' } },
+  // Simple linear flow
+  { id: 'e1-2', source: '1', target: '2', animated: true, type: 'editable', style: { stroke: '#6366f1', strokeWidth: 1.5, zIndex: 1000 }, zIndex: 1000 },
+  { id: 'e2-3', source: '2', target: '3', animated: true, type: 'editable', style: { stroke: '#6366f1', strokeWidth: 1.5, zIndex: 1000 }, zIndex: 1000 },
+  { id: 'e3-4', source: '3', target: '4', animated: true, type: 'editable', style: { stroke: '#6366f1', strokeWidth: 1.5, zIndex: 1000 }, zIndex: 1000 },
+  { id: 'e4-5', source: '4', target: '5', animated: true, type: 'editable', style: { stroke: '#6366f1', strokeWidth: 1.5, zIndex: 1000 }, zIndex: 1000 },
 ];
 
-export default function WorkflowCanvas() {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+interface WorkflowCanvasProps {
+  initialNodes?: Node[];
+  initialEdges?: Edge[];
+  onNodesChange?: (nodes: Node[]) => void;
+  onEdgesChange?: (edges: Edge[]) => void;
+  onLoadWorkflowCard?: (templateId: string) => void;
+  onNodeClick?: (event: React.MouseEvent, node: Node) => void;
+  isReadOnly?: boolean;
+  showComponentPalette?: boolean;
+  showWorkflowCards?: boolean;
+}
+
+export default function WorkflowCanvas({
+  initialNodes: propInitialNodes,
+  initialEdges: propInitialEdges,
+  onNodesChange: propOnNodesChange,
+  onEdgesChange: propOnEdgesChange,
+  onLoadWorkflowCard,
+  onNodeClick: propOnNodeClick,
+  isReadOnly = false,
+  showComponentPalette = true,
+  showWorkflowCards = true,
+}: WorkflowCanvasProps = {}) {
+  const [nodes, setNodes, onNodesChangeInternal] = useNodesState(propInitialNodes || initialNodes);
+  const [edges, setEdges, onEdgesChangeInternal] = useEdgesState(propInitialEdges || initialEdges);
+
+  // Sync with prop changes when parent updates nodes/edges
+  // Also inject isReadOnly into node data
+  useEffect(() => {
+    if (propInitialNodes) {
+      const nodesWithReadOnly = propInitialNodes.map(node => ({
+        ...node,
+        data: { ...node.data, isReadOnly },
+      }));
+      setNodes(nodesWithReadOnly);
+    }
+  }, [propInitialNodes, setNodes, isReadOnly]);
+
+  useEffect(() => {
+    if (propInitialEdges) {
+      setEdges(propInitialEdges);
+    }
+  }, [propInitialEdges, setEdges]);
+
+  const onNodesChange = propOnNodesChange
+    ? (changes: any) => {
+        onNodesChangeInternal(changes);
+        propOnNodesChange(nodes);
+      }
+    : onNodesChangeInternal;
+
+  const onEdgesChange = propOnEdgesChange
+    ? (changes: any) => {
+        onEdgesChangeInternal(changes);
+        propOnEdgesChange(edges);
+      }
+    : onEdgesChangeInternal;
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [draggedItem, setDraggedItem] = useState<any>(null);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [configDrawerOpen, setConfigDrawerOpen] = useState(false);
   const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null);
+  const [connectingNodeId, setConnectingNodeId] = useState<{ nodeId: string; handleType: string } | null>(null);
 
   const onConnect = useCallback(
     (params: Connection) => {
+      // Check if connecting to a ghost node - if so, replace ghost with this connection
+      const targetNode = nodes.find(n => n.id === params.target);
+      if (targetNode?.type === 'ghost') {
+        // Remove the ghost node and its temporary edge
+        setNodes((nds) => nds.filter(n => n.id !== params.target));
+        setEdges((eds) => eds.filter(e => e.target !== params.target));
+      }
+
       const newEdge = {
         ...params,
         animated: true,
-        type: 'smoothstep',
-        style: { stroke: '#6366f1', strokeWidth: 2 },
-        markerEnd: { type: MarkerType.ArrowClosed, color: '#6366f1' }
+        type: 'editable',
+        style: { stroke: '#6366f1', strokeWidth: 1.5, zIndex: 1000 },
+        zIndex: 1000,
       };
       setEdges((eds) => addEdge(newEdge, eds));
     },
+    [setEdges, nodes, setNodes]
+  );
+
+  const onReconnect = useCallback(
+    (oldEdge: Edge, newConnection: Connection) =>
+      setEdges((els) => reconnectEdge(oldEdge, newConnection, els)),
     [setEdges]
+  );
+
+  const onConnectStart = useCallback((_: React.MouseEvent | React.TouchEvent, { nodeId, handleType }: any) => {
+    setConnectingNodeId({ nodeId, handleType });
+  }, []);
+
+  const onConnectEnd = useCallback(
+    (event: MouseEvent | TouchEvent) => {
+      if (!connectingNodeId || !reactFlowInstance || !reactFlowWrapper.current) return;
+
+      const target = event.target as Element;
+
+      // Check if target is NOT a node (more robust than checking for pane)
+      const isNode = target.closest('.react-flow__node');
+      const isHandle = target.closest('.react-flow__handle');
+
+      // Debug logging - remove after verification
+      console.log('Connection ended:', {
+        target: target.className,
+        isNode: !!isNode,
+        isHandle: !!isHandle,
+        handleType: connectingNodeId.handleType
+      });
+
+      // Create ghost node if: source handle + not connecting to node/handle
+      if (!isNode && !isHandle && connectingNodeId.handleType === 'source') {
+        const reactFlowBounds = reactFlowWrapper.current.getBoundingClientRect();
+        const clientX = 'changedTouches' in event ? event.changedTouches[0].clientX : (event as MouseEvent).clientX;
+        const clientY = 'changedTouches' in event ? event.changedTouches[0].clientY : (event as MouseEvent).clientY;
+
+        const position = reactFlowInstance.project({
+          x: clientX - reactFlowBounds.left,
+          y: clientY - reactFlowBounds.top,
+        });
+
+        const ghostNodeId = `ghost-${Date.now()}`;
+        const ghostNode: Node = {
+          id: ghostNodeId,
+          type: 'ghost',
+          position,
+          data: { label: 'Connect me' },
+        };
+
+        const temporaryEdge: Edge = {
+          id: `temp-${connectingNodeId.nodeId}-${ghostNodeId}`,
+          source: connectingNodeId.nodeId,
+          target: ghostNodeId,
+          type: 'editable',
+          animated: false,
+          style: {
+            stroke: 'rgba(99, 102, 241, 0.5)',
+            strokeWidth: 1.5,
+            strokeDasharray: '5,5',
+            zIndex: 1000
+          },
+          zIndex: 1000,
+          data: { isTemporary: true },
+        };
+
+        console.log('Creating ghost node at:', position);
+        setNodes((nds) => [...nds, ghostNode]);
+        setEdges((eds) => [...eds, temporaryEdge]);
+      }
+
+      setConnectingNodeId(null);
+    },
+    [connectingNodeId, reactFlowInstance, setNodes, setEdges, reactFlowWrapper]
   );
 
   const onDragStart = (item: any) => {
@@ -266,11 +302,20 @@ export default function WorkflowCanvas() {
     [reactFlowInstance, nodes, draggedItem, setNodes]
   );
 
-  const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
-    setSelectedNode(node);
-    setSelectedEdge(null);
-    setConfigDrawerOpen(true);
-  }, []);
+  const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
+    // If parent provides custom handler, use it
+    if (propOnNodeClick) {
+      propOnNodeClick(event, node);
+      return;
+    }
+
+    // Otherwise, default behavior (config drawer)
+    if (!isReadOnly) {
+      setSelectedNode(node);
+      setSelectedEdge(null);
+      setConfigDrawerOpen(true);
+    }
+  }, [propOnNodeClick, isReadOnly]);
 
   const onEdgeClick = useCallback((_: React.MouseEvent, edge: Edge) => {
     setSelectedEdge(edge);
@@ -327,56 +372,81 @@ export default function WorkflowCanvas() {
       overflow: 'hidden'
     }}>
       {/* Top Section - Reusable Workflows */}
-      <Box
-        sx={{
-          width: '100%',
-          py: 2,
-          px: 3,
-          bgcolor: 'rgba(17, 24, 39, 0.98)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-          display: 'flex',
-          gap: 3,
-          overflowX: 'auto',
-          overflowY: 'visible',
-          position: 'relative',
-          zIndex: 1000,
-          flexShrink: 0,
-          minHeight: '120px',
-          alignItems: 'center',
-          '&::-webkit-scrollbar': {
-            height: '8px',
-          },
-          '&::-webkit-scrollbar-track': {
-            bgcolor: 'rgba(255, 255, 255, 0.05)',
-          },
-          '&::-webkit-scrollbar-thumb': {
-            bgcolor: 'rgba(255, 255, 255, 0.3)',
-            borderRadius: '4px',
-            '&:hover': {
-              bgcolor: 'rgba(255, 255, 255, 0.4)',
+      {showWorkflowCards && (
+        <Box
+          sx={{
+            width: '100%',
+            py: 2,
+            px: 3,
+            bgcolor: 'rgba(17, 24, 39, 0.98)',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+            display: 'flex',
+            gap: 3,
+            overflowX: 'auto',
+            overflowY: 'visible',
+            position: 'relative',
+            zIndex: 1000,
+            flexShrink: 0,
+            minHeight: '120px',
+            alignItems: 'center',
+            '&::-webkit-scrollbar': {
+              height: '8px',
             },
-          },
-        }}
-      >
-        <WorkflowCard title="Claims Detection" description="Detect misleading compliance claims" variant="primary" />
-        <WorkflowCard title="Vendor Risk" description="Automated vendor risk assessment" />
-        <WorkflowCard title="Access Review" description="Quarterly access review automation" />
-        <WorkflowCard title="Policy Violation" description="Real-time policy violation detection" />
-        <WorkflowCard title="Evidence Collection" description="Automated evidence gathering workflow" />
+            '&::-webkit-scrollbar-track': {
+              bgcolor: 'rgba(255, 255, 255, 0.05)',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              bgcolor: 'rgba(255, 255, 255, 0.3)',
+              borderRadius: '4px',
+              '&:hover': {
+                bgcolor: 'rgba(255, 255, 255, 0.4)',
+              },
+            },
+          }}
+        >
+        <WorkflowCard
+          title="Claims Detection"
+          description="Detect misleading compliance claims"
+          variant="primary"
+          onClick={() => onLoadWorkflowCard?.('claims-detection')}
+        />
+        <WorkflowCard
+          title="Vendor Risk"
+          description="Automated vendor risk assessment"
+          onClick={() => onLoadWorkflowCard?.('vendor-risk')}
+        />
+        <WorkflowCard
+          title="Access Review"
+          description="Quarterly access review automation"
+          onClick={() => onLoadWorkflowCard?.('access-review')}
+        />
+        <WorkflowCard
+          title="Policy Violation"
+          description="Real-time policy violation detection"
+          onClick={() => onLoadWorkflowCard?.('policy-violation')}
+        />
+        <WorkflowCard
+          title="Evidence Collection"
+          description="Automated evidence gathering workflow"
+          onClick={() => onLoadWorkflowCard?.('evidence-collection')}
+        />
       </Box>
+      )}
 
       {/* Main Canvas Area */}
       <Box sx={{
         display: 'flex',
         flexGrow: 1,
-        height: 'calc(100% - 120px)',
+        height: showWorkflowCards ? 'calc(100% - 120px)' : '100%',
         position: 'relative',
         overflow: 'hidden'
       }}>
         {/* Left Sidebar - Component Palette */}
-        <Box sx={{ flexShrink: 0, height: '100%', zIndex: 1, position: 'relative' }}>
-          <ComponentPalette onDragStart={onDragStart} />
-        </Box>
+        {showComponentPalette && (
+          <Box sx={{ flexShrink: 0, height: '100%', zIndex: 1, position: 'relative' }}>
+            <ComponentPalette onDragStart={onDragStart} />
+          </Box>
+        )}
 
         {/* React Flow Canvas */}
         <Box ref={reactFlowWrapper} sx={{
@@ -391,58 +461,50 @@ export default function WorkflowCanvas() {
             edges={edges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
+            onConnect={isReadOnly ? undefined : onConnect}
+            onReconnect={isReadOnly ? undefined : onReconnect}
+            onConnectStart={isReadOnly ? undefined : onConnectStart}
+            onConnectEnd={isReadOnly ? undefined : onConnectEnd}
             onNodeClick={onNodeClick}
-            onEdgeClick={onEdgeClick}
+            onEdgeClick={isReadOnly ? undefined : onEdgeClick}
             onInit={setReactFlowInstance}
-            onDragOver={onDragOver}
-            onDrop={onDrop}
+            onDragOver={isReadOnly ? undefined : onDragOver}
+            onDrop={isReadOnly ? undefined : onDrop}
             nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
             fitView
-            nodesDraggable={true}
-            nodesConnectable={true}
-            elementsSelectable={true}
+            nodesDraggable={!isReadOnly}
+            nodesConnectable={!isReadOnly}
+            elementsSelectable={!isReadOnly}
             selectNodesOnDrag={false}
-            panOnDrag={[1, 2]}
-            selectionOnDrag={true}
+            panOnDrag={true}
+            selectionOnDrag={false}
+            panOnScroll={false}
+            zoomOnScroll={true}
             snapToGrid={true}
             snapGrid={[15, 15]}
+            connectionRadius={20}
+            connectionLineStyle={{ stroke: '#6366f1', strokeWidth: 2, opacity: 0.8 }}
             defaultEdgeOptions={{
-              type: 'smoothstep',
+              type: 'editable',
               animated: true,
-              style: { stroke: '#6366f1', strokeWidth: 2 },
-              markerEnd: { type: MarkerType.ArrowClosed, color: '#6366f1' }
+              style: { stroke: '#6366f1', strokeWidth: 1.5, zIndex: 1000 },
+              zIndex: 1000,
             }}
+            elevateEdgesOnSelect={true}
+            edgesUpdatable={true}
+            edgesFocusable={true}
             style={{ background: '#0f0f1e' }}
             deleteKeyCode="Delete"
+            selectionKeyCode="Shift"
           >
             <Background
-              color="rgba(255, 255, 255, 0.1)"
-              gap={20}
+              color="rgba(255, 255, 255, 0.05)"
+              gap={30}
               size={1}
               style={{ background: '#0f0f1e' }}
             />
-            <Controls
-              style={{
-                button: {
-                  backgroundColor: 'rgba(30, 30, 50, 0.9)',
-                  color: 'white',
-                  borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-                },
-              }}
-            />
-            <MiniMap
-              nodeColor={(node) => {
-                if (node.type === 'decision') return '#6366f1';
-                if (node.type === 'circular') return '#10b981';
-                return '#6366f1';
-              }}
-              maskColor="rgba(15, 15, 30, 0.9)"
-              style={{
-                backgroundColor: 'rgba(30, 30, 50, 0.9)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-              }}
-            />
+            <Controls />
           </ReactFlow>
         </Box>
       </Box>
