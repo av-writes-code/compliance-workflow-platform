@@ -1,5 +1,5 @@
-import { Box, Typography, Chip } from '@mui/material';
-import { CheckCircle, Error as ErrorIcon, Schedule, PlayArrow } from '@mui/icons-material';
+import { Box, Typography, Chip, IconButton } from '@mui/material';
+import { CheckCircle, Error as ErrorIcon, Schedule, PlayArrow, Close } from '@mui/icons-material';
 
 interface ExecutionEvent {
   id: string;
@@ -13,9 +13,10 @@ interface ExecutionEvent {
 
 interface ExecutionTimelineProps {
   events: ExecutionEvent[];
+  onClose?: () => void;
 }
 
-export default function ExecutionTimeline({ events }: ExecutionTimelineProps) {
+export default function ExecutionTimeline({ events, onClose }: ExecutionTimelineProps) {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'running':
@@ -45,26 +46,44 @@ export default function ExecutionTimeline({ events }: ExecutionTimelineProps) {
   return (
     <Box
       sx={{
-        position: 'absolute',
-        bottom: 16,
-        right: 16,
-        width: 320,
-        maxHeight: 400,
-        bgcolor: 'rgba(17, 24, 39, 0.95)',
-        border: '1px solid rgba(99, 102, 241, 0.3)',
-        borderRadius: 2,
-        backdropFilter: 'blur(8px)',
+        position: 'fixed',
+        bottom: 80,
+        right: 24,
+        width: 360,
+        maxHeight: 500,
+        bgcolor: 'rgba(17, 24, 39, 0.98)',
+        border: '2px solid rgba(99, 102, 241, 0.5)',
+        borderRadius: 3,
+        backdropFilter: 'blur(12px)',
         overflow: 'hidden',
-        zIndex: 10,
+        zIndex: 2000,
+        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.1)',
       }}
     >
       {/* Header */}
       <Box sx={{ p: 2, borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Schedule sx={{ fontSize: 18, color: '#818cf8' }} />
-          <Typography variant="subtitle2" sx={{ color: 'white', fontWeight: 600 }}>
-            Execution Timeline
-          </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Schedule sx={{ fontSize: 18, color: '#818cf8' }} />
+            <Typography variant="subtitle2" sx={{ color: 'white', fontWeight: 600 }}>
+              Execution Timeline
+            </Typography>
+          </Box>
+          {onClose && (
+            <IconButton
+              onClick={onClose}
+              size="small"
+              sx={{
+                color: 'rgba(255, 255, 255, 0.5)',
+                '&:hover': {
+                  color: 'white',
+                  bgcolor: 'rgba(255, 255, 255, 0.1)',
+                },
+              }}
+            >
+              <Close fontSize="small" />
+            </IconButton>
+          )}
         </Box>
         <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.5)' }}>
           {events.length} events

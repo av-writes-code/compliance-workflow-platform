@@ -139,8 +139,8 @@ export default function ComponentPalette({ onDragStart }: ComponentPaletteProps)
         p: 2,
         overflowY: 'auto',
         overflowX: 'hidden',
-        height: '100%',
-        maxHeight: '100%',
+        height: 'calc(100vh - 180px)',
+        maxHeight: 'calc(100vh - 180px)',
         position: 'relative',
         zIndex: 1,
         '&::-webkit-scrollbar': {

@@ -5,7 +5,7 @@ interface WorkflowPreviewPopupProps {
   open: boolean;
   onClose: () => void;
   onSelect: () => void;
-  workflow: {
+  workflow?: {
     id: string;
     name: string;
     version: string;
@@ -24,7 +24,7 @@ export default function WorkflowPreviewPopup({
   onSelect,
   workflow,
 }: WorkflowPreviewPopupProps) {
-  if (!open) return null;
+  if (!open || !workflow) return null;
 
   return (
     <>

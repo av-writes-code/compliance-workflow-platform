@@ -4,6 +4,7 @@ import ReactFlow, {
   Edge,
   Controls,
   Background,
+  MiniMap,
   addEdge,
   reconnectEdge,
   Connection,
@@ -110,6 +111,8 @@ interface WorkflowCanvasProps {
   isReadOnly?: boolean;
   showComponentPalette?: boolean;
   showWorkflowCards?: boolean;
+  externalDraggedItem?: any;
+  onClearDraggedItem?: () => void;
 }
 
 export default function WorkflowCanvas({
@@ -122,6 +125,8 @@ export default function WorkflowCanvas({
   isReadOnly = false,
   showComponentPalette = true,
   showWorkflowCards = true,
+  externalDraggedItem,
+  onClearDraggedItem,
 }: WorkflowCanvasProps = {}) {
   const [nodes, setNodes, onNodesChangeInternal] = useNodesState(propInitialNodes || initialNodes);
   const [edges, setEdges, onEdgesChangeInternal] = useEdgesState(propInitialEdges || initialEdges);
@@ -144,12 +149,18 @@ export default function WorkflowCanvas({
     }
   }, [propInitialEdges, setEdges]);
 
-  const onNodesChange = propOnNodesChange
-    ? (changes: any) => {
-        onNodesChangeInternal(changes);
-        propOnNodesChange(nodes);
-      }
-    : onNodesChangeInternal;
+  // Notify parent whenever nodes change (but only call when nodes actually change)
+  const prevNodesRef = useRef<Node[]>([]);
+  useEffect(() => {
+    // Only notify if nodes array actually changed (not just reference)
+    const nodesChanged = nodes.length !== prevNodesRef.current.length ||
+      nodes.some((node, i) => node.id !== prevNodesRef.current[i]?.id);
+
+    if (nodesChanged && propOnNodesChange) {
+      propOnNodesChange(nodes);
+      prevNodesRef.current = nodes;
+    }
+  }, [nodes, propOnNodesChange]);
 
   const onEdgesChange = propOnEdgesChange
     ? (changes: any) => {
@@ -273,7 +284,8 @@ export default function WorkflowCanvas({
     (event: React.DragEvent) => {
       event.preventDefault();
 
-      if (!reactFlowWrapper.current || !reactFlowInstance || !draggedItem) return;
+      const currentDraggedItem = externalDraggedItem || draggedItem;
+      if (!reactFlowWrapper.current || !reactFlowInstance || !currentDraggedItem) return;
 
       const reactFlowBounds = reactFlowWrapper.current.getBoundingClientRect();
       const position = reactFlowInstance.project({
@@ -281,25 +293,28 @@ export default function WorkflowCanvas({
         y: event.clientY - reactFlowBounds.top,
       });
 
-      const nodeType = draggedItem.type === 'decision' ? 'decision' :
-                       draggedItem.type === 'conditional' ? 'standard' : 'standard';
+      const nodeType = currentDraggedItem.type === 'decision' ? 'decision' :
+                       currentDraggedItem.type === 'conditional' ? 'standard' : 'standard';
 
       const newNode: Node = {
         id: `node-${Date.now()}`,
         type: nodeType,
         position,
         data: {
-          label: draggedItem.label,
-          subtitle: draggedItem.type,
-          icon: draggedItem.icon,
-          showSubNodes: draggedItem.type === 'agent' || draggedItem.type === 'chat-model',
+          label: currentDraggedItem.label,
+          subtitle: currentDraggedItem.type,
+          icon: currentDraggedItem.icon,
+          showSubNodes: currentDraggedItem.type === 'agent' || currentDraggedItem.type === 'chat-model',
         },
       };
 
       setNodes((nds) => [...nds, newNode]);
       setDraggedItem(null);
+      if (onClearDraggedItem) {
+        onClearDraggedItem();
+      }
     },
-    [reactFlowInstance, nodes, draggedItem, setNodes]
+    [reactFlowInstance, nodes, draggedItem, externalDraggedItem, onClearDraggedItem, setNodes]
   );
 
   const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
@@ -459,7 +474,7 @@ export default function WorkflowCanvas({
           <ReactFlow
             nodes={nodes}
             edges={edges}
-            onNodesChange={onNodesChange}
+            onNodesChange={onNodesChangeInternal}
             onEdgesChange={onEdgesChange}
             onConnect={isReadOnly ? undefined : onConnect}
             onReconnect={isReadOnly ? undefined : onReconnect}
@@ -477,10 +492,14 @@ export default function WorkflowCanvas({
             nodesConnectable={!isReadOnly}
             elementsSelectable={!isReadOnly}
             selectNodesOnDrag={false}
+            deleteKeyCode="Delete"
             panOnDrag={true}
             selectionOnDrag={false}
-            panOnScroll={false}
+            panOnScroll={true}
             zoomOnScroll={true}
+            zoomOnPinch={true}
+            panOnScrollMode="free"
+            panOnScrollSpeed={0.5}
             snapToGrid={true}
             snapGrid={[15, 15]}
             connectionRadius={20}
@@ -495,7 +514,6 @@ export default function WorkflowCanvas({
             edgesUpdatable={true}
             edgesFocusable={true}
             style={{ background: '#0f0f1e' }}
-            deleteKeyCode="Delete"
             selectionKeyCode="Shift"
           >
             <Background
@@ -504,7 +522,19 @@ export default function WorkflowCanvas({
               size={1}
               style={{ background: '#0f0f1e' }}
             />
-            <Controls />
+            <Controls showInteractive={false} />
+            <MiniMap
+              nodeColor={(node) => {
+                if (node.type === 'decisionNode') return '#fbbf24';
+                if (node.type === 'circularNode') return '#22c55e';
+                return '#818cf8';
+              }}
+              maskColor="rgba(0, 0, 0, 0.6)"
+              style={{
+                background: 'rgba(17, 24, 39, 0.9)',
+                border: '1px solid rgba(99, 102, 241, 0.3)',
+              }}
+            />
           </ReactFlow>
         </Box>
       </Box>

@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
-import { Box, Typography, Chip, Drawer, IconButton, Button, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
-import { SmartToy, Memory, Security, ChevronLeft, ChevronRight, History, Edit, BugReport } from '@mui/icons-material';
+import { Box, Typography, Chip, Drawer, IconButton, Button, Select, MenuItem, FormControl, InputLabel, Menu } from '@mui/material';
+import { SmartToy, Memory, Security, ChevronLeft, ChevronRight, History, Edit, BugReport, KeyboardArrowDown } from '@mui/icons-material';
 import EvaluationsButton from '../components/workflow/EvaluationsButton';
 import EvaluationsDrawer from '../components/workflow/EvaluationsDrawer';
 import ExecutionControlBar from '../components/workflow/ExecutionControlBar';
@@ -8,12 +8,13 @@ import DeployedWorkflowCard from '../components/workflow/DeployedWorkflowCard';
 import ExecutionTimeline from '../components/workflow/ExecutionTimeline';
 import WorkflowInputDialog from '../components/workflow/WorkflowInputDialog';
 import NodeInspectorDrawer from '../components/workflow/NodeInspectorDrawer';
-import ExecutionStatePanel from '../components/workflow/ExecutionStatePanel';
 import ExecutionHistoryDrawer from '../components/workflow/ExecutionHistoryDrawer';
 import StateModificationPanel from '../components/workflow/StateModificationPanel';
 import BreakpointsPanel from '../components/workflow/BreakpointsPanel';
 import WorkflowCard from '../components/workflow/WorkflowCard';
 import ComponentPalette from '../components/workflow/ComponentPalette';
+import WorkflowPreviewPopup from '../components/workflow/WorkflowPreviewPopup';
+import ChatbotWidget from '../components/workflow/ChatbotWidget';
 import WorkflowCanvas from './WorkflowCanvas';
 import { Node, Edge } from 'reactflow';
 
@@ -53,12 +54,17 @@ export default function ProductionEnvironment() {
   const [currentStep, setCurrentStep] = useState(0);
   const [breakpointsEnabled, setBreakpointsEnabled] = useState(false);
   const [executionSpeed, setExecutionSpeed] = useState<'slow' | 'normal' | 'fast'>('normal');
-  const [statePanelOpen, setStatePanelOpen] = useState(false);
   const [breakpoints, setBreakpoints] = useState<Breakpoint[]>([]);
   const [breakpointsPanelOpen, setBreakpointsPanelOpen] = useState(false);
   const [pausedAtBreakpoint, setPausedAtBreakpoint] = useState(false);
   const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false);
   const [stateModificationOpen, setStateModificationOpen] = useState(false);
+  const [previewPopupOpen, setPreviewPopupOpen] = useState(false);
+  const [previewWorkflowId, setPreviewWorkflowId] = useState<string | null>(null);
+  const [workflowMenuAnchor, setWorkflowMenuAnchor] = useState<null | HTMLElement>(null);
+  const [timelineVisible, setTimelineVisible] = useState(true);
+  const [draggedComponent, setDraggedComponent] = useState<any>(null);
+  const [userAddedNodes, setUserAddedNodes] = useState<Node[]>([]);
 
   // Runtime state for nodes (separate from workflow definitions)
   interface NodeRuntimeState {
@@ -74,6 +80,19 @@ export default function ProductionEnvironment() {
   // Helper to check if node has an enabled breakpoint
   const hasEnabledBreakpoint = (nodeId: string): boolean => {
     return breakpoints.some(bp => bp.nodeId === nodeId && bp.enabled);
+  };
+
+  // Drag-drop handler for ComponentPalette
+  const handleComponentDragStart = (item: any) => {
+    setDraggedComponent(item);
+  };
+
+  // Handler to sync user-added nodes from WorkflowCanvas
+  const handleNodesChange = (nodes: Node[]) => {
+    // Filter out template nodes to get only user-added nodes
+    const templateNodeIds = new Set(selectedWorkflow.nodes.map(n => n.id));
+    const addedNodes = nodes.filter(n => !templateNodeIds.has(n.id));
+    setUserAddedNodes(addedNodes);
   };
 
   // Capture state snapshot when breakpoint is hit
@@ -177,7 +196,9 @@ export default function ProductionEnvironment() {
 
   const handleStepOver = () => {
     console.log('Step over to next node');
-    const workflow = deployedWorkflows.find(w => w.id === selectedWorkflowId);
+    const workflow =
+      deployedWorkflows.find(w => w.id === selectedWorkflowId) ||
+      Object.values(workflowTemplates).find(t => t.id === selectedWorkflowId);
     if (!workflow) return;
 
     // Move to next step
@@ -208,10 +229,12 @@ export default function ProductionEnvironment() {
     setExecutionStatus('running');
     setCompletedSteps(0);
     setExecutionEvents([]);
-    setStatePanelOpen(true); // Auto-open panel when execution starts
+    setTimelineVisible(true);
 
     // Update selected workflow with execution status
-    const workflow = deployedWorkflows.find(w => w.id === selectedWorkflowId);
+    const workflow =
+      deployedWorkflows.find(w => w.id === selectedWorkflowId) ||
+      Object.values(workflowTemplates).find(t => t.id === selectedWorkflowId);
     if (!workflow) return;
 
     // Simulate node-by-node execution
@@ -301,7 +324,9 @@ export default function ProductionEnvironment() {
     setExecutionTime('0s');
 
     // Reset all node and edge statuses
-    const workflow = deployedWorkflows.find(w => w.id === selectedWorkflowId);
+    const workflow =
+      deployedWorkflows.find(w => w.id === selectedWorkflowId) ||
+      Object.values(workflowTemplates).find(t => t.id === selectedWorkflowId);
     if (workflow) {
       workflow.nodes.forEach(node => {
         node.data = { ...node.data, executionStatus: 'idle' };
@@ -318,11 +343,37 @@ export default function ProductionEnvironment() {
     setSelectedWorkflowId(id);
   };
 
+  const handleShowPreview = (id: string) => {
+    setPreviewWorkflowId(id);
+    setPreviewPopupOpen(true);
+  };
+
+  const handleShowTemplatePreview = (templateKey: string) => {
+    const template = workflowTemplates[templateKey];
+    if (template) {
+      setPreviewWorkflowId(template.id);
+      setPreviewPopupOpen(true);
+    }
+  };
+
+  const handleSelectFromPreview = () => {
+    if (previewWorkflowId) {
+      setSelectedWorkflowId(previewWorkflowId);
+      setExecutionStatus('idle');
+      setCompletedSteps(0);
+      setExecutionTime('0s');
+      setNodeRuntimeState({});
+    }
+  };
+
   const handleInspectNode = (nodeId: string) => {
-    const workflow = deployedWorkflows.find(w => w.id === selectedWorkflowId);
+    const workflow =
+      deployedWorkflows.find(w => w.id === selectedWorkflowId) ||
+      Object.values(workflowTemplates).find(t => t.id === selectedWorkflowId);
     if (!workflow) return;
 
-    const node = workflow.nodes.find(n => n.id === nodeId);
+    const allNodes = [...workflow.nodes, ...userAddedNodes];
+    const node = allNodes.find(n => n.id === nodeId);
     if (!node) return;
 
     const isAINode = node.data.label === 'AI Agent';
@@ -416,7 +467,9 @@ export default function ProductionEnvironment() {
 
   const handleStepForward = () => {
     console.log('Step forward');
-    const workflow = deployedWorkflows.find(w => w.id === selectedWorkflowId);
+    const workflow =
+      deployedWorkflows.find(w => w.id === selectedWorkflowId) ||
+      Object.values(workflowTemplates).find(t => t.id === selectedWorkflowId);
     if (!workflow) return;
 
     const nextStep = Math.min(currentStep + 1, workflow.nodes.length);
@@ -452,7 +505,9 @@ export default function ProductionEnvironment() {
 
   const handleStepBackward = () => {
     console.log('Step backward - time travel');
-    const workflow = deployedWorkflows.find(w => w.id === selectedWorkflowId);
+    const workflow =
+      deployedWorkflows.find(w => w.id === selectedWorkflowId) ||
+      Object.values(workflowTemplates).find(t => t.id === selectedWorkflowId);
     if (!workflow) return;
 
     const prevStep = Math.max(currentStep - 1, 0);
@@ -488,7 +543,9 @@ export default function ProductionEnvironment() {
 
   const handleContinueToBreakpoint = () => {
     console.log('Continue to next breakpoint');
-    const workflow = deployedWorkflows.find(w => w.id === selectedWorkflowId);
+    const workflow =
+      deployedWorkflows.find(w => w.id === selectedWorkflowId) ||
+      Object.values(workflowTemplates).find(t => t.id === selectedWorkflowId);
     if (!workflow || !breakpointsEnabled) return;
 
     // Find next breakpoint from current position
@@ -565,10 +622,13 @@ export default function ProductionEnvironment() {
     // Allow setting breakpoints even when toggle is OFF
     // The toggle only controls whether execution pauses at them
 
-    const workflow = deployedWorkflows.find(w => w.id === selectedWorkflowId);
+    const workflow =
+      deployedWorkflows.find(w => w.id === selectedWorkflowId) ||
+      Object.values(workflowTemplates).find(t => t.id === selectedWorkflowId);
     if (!workflow) return;
 
-    const node = workflow.nodes.find(n => n.id === nodeId);
+    const allNodes = [...workflow.nodes, ...userAddedNodes];
+    const node = allNodes.find(n => n.id === nodeId);
     if (!node) return;
 
     setBreakpoints(prev => {
@@ -633,7 +693,9 @@ export default function ProductionEnvironment() {
 
   // Navigate to node when breakpoint clicked in panel
   const handleNavigateToNode = (nodeId: string) => {
-    const workflow = deployedWorkflows.find(w => w.id === selectedWorkflowId);
+    const workflow =
+      deployedWorkflows.find(w => w.id === selectedWorkflowId) ||
+      Object.values(workflowTemplates).find(t => t.id === selectedWorkflowId);
     if (!workflow) return;
 
     const node = workflow.nodes.find(n => n.id === nodeId);
@@ -706,13 +768,25 @@ export default function ProductionEnvironment() {
         {
           id: '1',
           type: 'standard',
-          position: { x: 100, y: 200 },
+          position: { x: 50, y: 200 },
           data: {
             label: 'Claim Input',
             subtitle: 'Claims API',
             icon: 'Memory',
             onInspect: () => handleInspectNode('1'),
             onToggleBreakpoint: () => handleToggleNodeBreakpoint('1'),
+          },
+        },
+        {
+          id: '1b',
+          type: 'standard',
+          position: { x: 200, y: 200 },
+          data: {
+            label: 'Batch Claims',
+            subtitle: 'Loop Items',
+            icon: 'Loop',
+            onInspect: () => handleInspectNode('1b'),
+            onToggleBreakpoint: () => handleToggleNodeBreakpoint('1b'),
           },
         },
         {
@@ -728,9 +802,21 @@ export default function ProductionEnvironment() {
           },
         },
         {
+          id: '2b',
+          type: 'standard',
+          position: { x: 500, y: 200 },
+          data: {
+            label: 'AI Confidence',
+            subtitle: 'Score: 0-100',
+            icon: 'Psychology',
+            onInspect: () => handleInspectNode('2b'),
+            onToggleBreakpoint: () => handleToggleNodeBreakpoint('2b'),
+          },
+        },
+        {
           id: '3',
           type: 'decision',
-          position: { x: 600, y: 180 },
+          position: { x: 650, y: 180 },
           data: {
             label: 'Detect Misleading',
             onInspect: () => handleInspectNode('3'),
@@ -740,7 +826,7 @@ export default function ProductionEnvironment() {
         {
           id: '4',
           type: 'standard',
-          position: { x: 800, y: 100 },
+          position: { x: 800, y: 60 },
           data: {
             label: 'Approve',
             subtitle: 'Auto-approve',
@@ -752,7 +838,7 @@ export default function ProductionEnvironment() {
         {
           id: '5',
           type: 'standard',
-          position: { x: 800, y: 280 },
+          position: { x: 800, y: 340 },
           data: {
             label: 'Flag for Review',
             subtitle: 'Manual Check',
@@ -761,12 +847,28 @@ export default function ProductionEnvironment() {
             onToggleBreakpoint: () => handleToggleNodeBreakpoint('5'),
           },
         },
+        {
+          id: '6',
+          type: 'standard',
+          position: { x: 950, y: 200 },
+          data: {
+            label: 'Send Notifications',
+            subtitle: 'Email + Slack',
+            icon: 'Notifications',
+            onInspect: () => handleInspectNode('6'),
+            onToggleBreakpoint: () => handleToggleNodeBreakpoint('6'),
+          },
+        },
       ],
       edges: [
-        { id: 'e1-2', source: '1', target: '2', data: {} },
-        { id: 'e2-3', source: '2', target: '3', data: {} },
+        { id: 'e1-1b', source: '1', target: '1b', data: {} },
+        { id: 'e1b-2', source: '1b', target: '2', data: {} },
+        { id: 'e2-2b', source: '2', target: '2b', data: {} },
+        { id: 'e2b-3', source: '2b', target: '3', data: {} },
         { id: 'e3-4', source: '3', target: '4', sourceHandle: 'true', data: { branchLabel: 'valid' } },
         { id: 'e3-5', source: '3', target: '5', sourceHandle: 'false', data: { branchLabel: 'misleading' } },
+        { id: 'e4-6', source: '4', target: '6', data: {} },
+        { id: 'e5-6', source: '5', target: '6', data: {} },
       ],
     },
     'vendor-risk': {
@@ -778,8 +880,20 @@ export default function ProductionEnvironment() {
         {
           id: '1',
           type: 'standard',
-          position: { x: 100, y: 200 },
+          position: { x: 50, y: 200 },
           data: { label: 'Vendor Data', subtitle: 'CRM Integration', icon: 'Memory', onInspect: () => handleInspectNode('1'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('1') },
+        },
+        {
+          id: '1b',
+          type: 'standard',
+          position: { x: 200, y: 250 },
+          data: { label: 'Financial Check', subtitle: 'Credit API', icon: 'IntegrationInstructions', onInspect: () => handleInspectNode('1b'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('1b') },
+        },
+        {
+          id: '1c',
+          type: 'standard',
+          position: { x: 200, y: 100 },
+          data: { label: 'Batch Vendors', subtitle: 'Loop Items', icon: 'Loop', onInspect: () => handleInspectNode('1c'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('1c') },
         },
         {
           id: '2',
@@ -790,27 +904,46 @@ export default function ProductionEnvironment() {
         {
           id: '3',
           type: 'decision',
-          position: { x: 600, y: 180 },
+          position: { x: 500, y: 180 },
           data: { label: 'Risk Level', onInspect: () => handleInspectNode('3'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('3') },
         },
         {
           id: '4',
           type: 'standard',
-          position: { x: 800, y: 100 },
+          position: { x: 650, y: 60 },
           data: { label: 'Low Risk', subtitle: 'Auto-approve', icon: 'Security', onInspect: () => handleInspectNode('4'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('4') },
         },
         {
           id: '5',
           type: 'standard',
-          position: { x: 800, y: 280 },
-          data: { label: 'High Risk', subtitle: 'Review Required', icon: 'Security', onInspect: () => handleInspectNode('5'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('5') },
+          position: { x: 650, y: 200 },
+          data: { label: 'Medium Risk', subtitle: 'Manager Review', icon: 'Security', onInspect: () => handleInspectNode('5'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('5') },
+        },
+        {
+          id: '5b',
+          type: 'standard',
+          position: { x: 650, y: 340 },
+          data: { label: 'High Risk', subtitle: 'Full Audit', icon: 'Security', onInspect: () => handleInspectNode('5b'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('5b') },
+        },
+        {
+          id: '6',
+          type: 'standard',
+          position: { x: 850, y: 200 },
+          data: { label: 'Audit Trail', subtitle: 'Log Decision', icon: 'Settings', onInspect: () => handleInspectNode('6'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('6') },
         },
       ],
       edges: [
-        { id: 'e1-2', source: '1', target: '2', data: {} },
+        { id: 'e1-1b', source: '1', target: '1b', data: {} },
+        { id: 'e1-1c', source: '1', target: '1c', data: {} },
+        { id: 'e1b-2', source: '1b', target: '2', data: {} },
+        { id: 'e1c-2', source: '1c', target: '2', data: {} },
         { id: 'e2-3', source: '2', target: '3', data: {} },
         { id: 'e3-4', source: '3', target: '4', sourceHandle: 'true', data: { branchLabel: 'low' } },
-        { id: 'e3-5', source: '3', target: '5', sourceHandle: 'false', data: { branchLabel: 'high' } },
+        { id: 'e3-5', source: '3', target: '5', sourceHandle: 'false', data: { branchLabel: 'medium' } },
+        { id: 'e3-5b', source: '3', target: '5b', sourceHandle: 'false', data: { branchLabel: 'high' } },
+        { id: 'e4-6', source: '4', target: '6', data: {} },
+        { id: 'e5-6', source: '5', target: '6', data: {} },
+        { id: 'e5b-6', source: '5b', target: '6', data: {} },
       ],
     },
     'access-review': {
@@ -822,39 +955,75 @@ export default function ProductionEnvironment() {
         {
           id: '1',
           type: 'standard',
-          position: { x: 100, y: 200 },
+          position: { x: 50, y: 200 },
           data: { label: 'User Access', subtitle: 'IAM System', icon: 'Memory', onInspect: () => handleInspectNode('1'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('1') },
+        },
+        {
+          id: '1b',
+          type: 'standard',
+          position: { x: 180, y: 200 },
+          data: { label: 'Batch Users', subtitle: 'Loop Items', icon: 'Loop', onInspect: () => handleInspectNode('1b'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('1b') },
         },
         {
           id: '2',
           type: 'standard',
-          position: { x: 350, y: 200 },
+          position: { x: 310, y: 200 },
           data: { label: 'Policy Check', subtitle: 'RBAC Validation', icon: 'SmartToy', onInspect: () => handleInspectNode('2'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('2') },
         },
         {
           id: '3',
           type: 'decision',
-          position: { x: 600, y: 180 },
+          position: { x: 440, y: 180 },
           data: { label: 'Access Valid', onInspect: () => handleInspectNode('3'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('3') },
         },
         {
           id: '4',
           type: 'standard',
-          position: { x: 800, y: 100 },
+          position: { x: 580, y: 80 },
           data: { label: 'Maintain', subtitle: 'Keep Access', icon: 'Security', onInspect: () => handleInspectNode('4'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('4') },
         },
         {
           id: '5',
           type: 'standard',
-          position: { x: 800, y: 280 },
+          position: { x: 580, y: 300 },
           data: { label: 'Revoke', subtitle: 'Remove Access', icon: 'Security', onInspect: () => handleInspectNode('5'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('5') },
+        },
+        {
+          id: '5b',
+          type: 'standard',
+          position: { x: 700, y: 300 },
+          data: { label: 'Request Approval', subtitle: 'Manager Sign-off', icon: 'CheckCircle', onInspect: () => handleInspectNode('5b'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('5b') },
+        },
+        {
+          id: '6',
+          type: 'standard',
+          position: { x: 720, y: 190 },
+          data: { label: 'Send Notification', subtitle: 'Email Users', icon: 'Notifications', onInspect: () => handleInspectNode('6'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('6') },
+        },
+        {
+          id: '7',
+          type: 'standard',
+          position: { x: 850, y: 190 },
+          data: { label: 'Generate Report', subtitle: 'Compliance Log', icon: 'Settings', onInspect: () => handleInspectNode('7'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('7') },
+        },
+        {
+          id: '8',
+          type: 'standard',
+          position: { x: 980, y: 190 },
+          data: { label: 'Archive Results', subtitle: 'Database Store', icon: 'Memory', onInspect: () => handleInspectNode('8'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('8') },
         },
       ],
       edges: [
-        { id: 'e1-2', source: '1', target: '2', data: {} },
+        { id: 'e1-1b', source: '1', target: '1b', data: {} },
+        { id: 'e1b-2', source: '1b', target: '2', data: {} },
         { id: 'e2-3', source: '2', target: '3', data: {} },
         { id: 'e3-4', source: '3', target: '4', sourceHandle: 'true', data: { branchLabel: 'valid' } },
         { id: 'e3-5', source: '3', target: '5', sourceHandle: 'false', data: { branchLabel: 'invalid' } },
+        { id: 'e5-5b', source: '5', target: '5b', data: {} },
+        { id: 'e4-6', source: '4', target: '6', data: {} },
+        { id: 'e5b-6', source: '5b', target: '6', data: {} },
+        { id: 'e6-7', source: '6', target: '7', data: {} },
+        { id: 'e7-8', source: '7', target: '8', data: {} },
       ],
     },
     'policy-violation': {
@@ -866,39 +1035,62 @@ export default function ProductionEnvironment() {
         {
           id: '1',
           type: 'standard',
-          position: { x: 100, y: 200 },
+          position: { x: 50, y: 200 },
           data: { label: 'Activity Log', subtitle: 'SIEM Feed', icon: 'Memory', onInspect: () => handleInspectNode('1'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('1') },
         },
         {
           id: '2',
           type: 'standard',
-          position: { x: 350, y: 200 },
+          position: { x: 200, y: 200 },
           data: { label: 'Pattern Match', subtitle: 'Rule Engine', icon: 'SmartToy', onInspect: () => handleInspectNode('2'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('2') },
+        },
+        {
+          id: '2b',
+          type: 'standard',
+          position: { x: 350, y: 200 },
+          data: { label: 'Classify Severity', subtitle: 'Low/Med/High', icon: 'Psychology', onInspect: () => handleInspectNode('2b'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('2b') },
         },
         {
           id: '3',
           type: 'decision',
-          position: { x: 600, y: 180 },
+          position: { x: 500, y: 180 },
           data: { label: 'Violation', onInspect: () => handleInspectNode('3'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('3') },
         },
         {
           id: '4',
           type: 'standard',
-          position: { x: 800, y: 100 },
+          position: { x: 650, y: 60 },
           data: { label: 'Clear', subtitle: 'No Action', icon: 'Security', onInspect: () => handleInspectNode('4'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('4') },
         },
         {
           id: '5',
           type: 'standard',
-          position: { x: 800, y: 280 },
-          data: { label: 'Alert', subtitle: 'Send Notification', icon: 'Security', onInspect: () => handleInspectNode('5'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('5') },
+          position: { x: 650, y: 200 },
+          data: { label: 'Alert', subtitle: 'Send Notification', icon: 'Notifications', onInspect: () => handleInspectNode('5'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('5') },
+        },
+        {
+          id: '5b',
+          type: 'standard',
+          position: { x: 650, y: 340 },
+          data: { label: 'Auto-Remediate', subtitle: 'Fix Policy', icon: 'Settings', onInspect: () => handleInspectNode('5b'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('5b') },
+        },
+        {
+          id: '6',
+          type: 'standard',
+          position: { x: 850, y: 200 },
+          data: { label: 'Log Incident', subtitle: 'Audit Trail', icon: 'Memory', onInspect: () => handleInspectNode('6'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('6') },
         },
       ],
       edges: [
         { id: 'e1-2', source: '1', target: '2', data: {} },
-        { id: 'e2-3', source: '2', target: '3', data: {} },
+        { id: 'e2-2b', source: '2', target: '2b', data: {} },
+        { id: 'e2b-3', source: '2b', target: '3', data: {} },
         { id: 'e3-4', source: '3', target: '4', sourceHandle: 'true', data: { branchLabel: 'compliant' } },
-        { id: 'e3-5', source: '3', target: '5', sourceHandle: 'false', data: { branchLabel: 'violation' } },
+        { id: 'e3-5', source: '3', target: '5', sourceHandle: 'false', data: { branchLabel: 'minor' } },
+        { id: 'e3-5b', source: '3', target: '5b', sourceHandle: 'false', data: { branchLabel: 'critical' } },
+        { id: 'e4-6', source: '4', target: '6', data: {} },
+        { id: 'e5-6', source: '5', target: '6', data: {} },
+        { id: 'e5b-6', source: '5b', target: '6', data: {} },
       ],
     },
     'evidence-collection': {
@@ -910,32 +1102,53 @@ export default function ProductionEnvironment() {
         {
           id: '1',
           type: 'standard',
-          position: { x: 100, y: 200 },
+          position: { x: 50, y: 200 },
           data: { label: 'Audit Request', subtitle: 'Trigger Event', icon: 'Memory', onInspect: () => handleInspectNode('1'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('1') },
         },
         {
           id: '2',
           type: 'standard',
+          position: { x: 200, y: 200 },
+          data: { label: 'Gather Logs', subtitle: 'Multi-source', icon: 'IntegrationInstructions', onInspect: () => handleInspectNode('2'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('2') },
+        },
+        {
+          id: '2b',
+          type: 'standard',
           position: { x: 350, y: 200 },
-          data: { label: 'Gather Logs', subtitle: 'Multi-source', icon: 'SmartToy', onInspect: () => handleInspectNode('2'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('2') },
+          data: { label: 'Validate Data', subtitle: 'Integrity Check', icon: 'CheckCircle', onInspect: () => handleInspectNode('2b'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('2b') },
         },
         {
           id: '3',
           type: 'standard',
-          position: { x: 600, y: 200 },
+          position: { x: 500, y: 200 },
           data: { label: 'Package', subtitle: 'Archive & Sign', icon: 'Security', onInspect: () => handleInspectNode('3'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('3') },
+        },
+        {
+          id: '3b',
+          type: 'standard',
+          position: { x: 650, y: 200 },
+          data: { label: 'Compliance Check', subtitle: 'SOC2/ISO27001', icon: 'Security', onInspect: () => handleInspectNode('3b'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('3b') },
         },
         {
           id: '4',
           type: 'standard',
-          position: { x: 850, y: 200 },
-          data: { label: 'Store', subtitle: 'Secure Storage', icon: 'Security', onInspect: () => handleInspectNode('4'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('4') },
+          position: { x: 800, y: 200 },
+          data: { label: 'Store', subtitle: 'Secure Storage', icon: 'Memory', onInspect: () => handleInspectNode('4'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('4') },
+        },
+        {
+          id: '5',
+          type: 'standard',
+          position: { x: 950, y: 200 },
+          data: { label: 'Generate Receipt', subtitle: 'Audit Trail', icon: 'Settings', onInspect: () => handleInspectNode('5'), onToggleBreakpoint: () => handleToggleNodeBreakpoint('5') },
         },
       ],
       edges: [
         { id: 'e1-2', source: '1', target: '2', data: {} },
-        { id: 'e2-3', source: '2', target: '3', data: {} },
-        { id: 'e3-4', source: '3', target: '4', data: {} },
+        { id: 'e2-2b', source: '2', target: '2b', data: {} },
+        { id: 'e2b-3', source: '2b', target: '3', data: {} },
+        { id: 'e3-3b', source: '3', target: '3b', data: {} },
+        { id: 'e3b-4', source: '3b', target: '4', data: {} },
+        { id: 'e4-5', source: '4', target: '5', data: {} },
       ],
     },
   };
@@ -1107,86 +1320,27 @@ export default function ProductionEnvironment() {
     },
   ];
 
-  const selectedWorkflow = deployedWorkflows.find(w => w.id === selectedWorkflowId) || deployedWorkflows[0];
-
-  // Compute live execution state for the panel
-  const computeLiveExecutionState = () => {
-    const workflow = deployedWorkflows.find(w => w.id === selectedWorkflowId);
-    if (!workflow) return { variables: [], callStack: [], resources: { memoryUsage: { current: 0, max: 512, unit: 'MB' as const }, cpuUsage: 0 } };
-
-    // Get current node's data
-    const currentNodeIndex = currentStep > 0 ? currentStep - 1 : 0;
-    const currentNode = workflow.nodes[currentNodeIndex];
-
-    // Extract variables from inspected node if available, otherwise use current step data
-    const variables: any[] = [];
-    if (inspectedNode && inspectedNode.inputData) {
-      const inputData = inspectedNode.inputData;
-      // Flatten object into variables
-      Object.entries(inputData).forEach(([key, value]) => {
-        if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-          // Nested object - add as single variable
-          variables.push({
-            name: key,
-            value: value,
-            type: 'object',
-          });
-        } else {
-          variables.push({
-            name: key,
-            value: value,
-            type: Array.isArray(value) ? 'array' : typeof value,
-          });
-        }
-      });
-    }
-
-    // Build call stack from execution path
-    const callStack: any[] = [];
-    if (executionStatus === 'running' || executionStatus === 'paused' || pausedAtBreakpoint) {
-      workflow.nodes.forEach((node, index) => {
-        if (index < currentStep) {
-          callStack.push({
-            nodeId: node.id,
-            nodeName: node.data.label,
-            status: index === currentNodeIndex ? 'running' : 'completed',
-            depth: 0,
-          });
-        }
-      });
-    }
-
-    // Compute resource usage from inspected node metadata
-    const memoryUsage = inspectedNode?.resources?.memoryUsage || 0;
-    const cpuTime = inspectedNode?.resources?.cpuTime || 0;
-    const cpuUsage = Math.min((cpuTime / 1000) * 100, 100); // Convert ms to percentage
-
-    return {
-      variables,
-      callStack,
-      resources: {
-        memoryUsage: {
-          current: Number((memoryUsage / (1024 * 1024)).toFixed(1)), // Convert bytes to MB
-          max: 512,
-          unit: 'MB' as const,
-        },
-        cpuUsage,
-      },
-    };
-  };
-
-  const liveState = computeLiveExecutionState();
+  const selectedWorkflow =
+    deployedWorkflows.find(w => w.id === selectedWorkflowId) ||
+    Object.values(workflowTemplates).find(t => t.id === selectedWorkflowId) ||
+    deployedWorkflows[0];
 
   // Enrich nodes with runtime state (memoized to prevent React Flow warnings)
+  // Merge template nodes + user-added nodes, then enrich all with runtime state
   const enrichedNodes = useMemo(
-    () => selectedWorkflow.nodes.map(node => ({
-      ...node,
-      data: {
-        ...node.data,
-        ...nodeRuntimeState[node.id], // Merge runtime state
-      },
-    })),
-    [selectedWorkflowId, JSON.stringify(nodeRuntimeState)] // Use stable stringified comparison
+    () => {
+      const allNodes = [...selectedWorkflow.nodes, ...userAddedNodes];
+      return allNodes.map(node => ({
+        ...node,
+        data: {
+          ...node.data,
+          ...nodeRuntimeState[node.id], // Merge runtime state
+          onInspect: () => handleInspectNode(node.id),
+          onToggleBreakpoint: () => handleToggleNodeBreakpoint(node.id),
+        },
+      }));
+    },
+    [selectedWorkflowId, userAddedNodes, JSON.stringify(nodeRuntimeState)] // Use stable stringified comparison
   );
 
   return (
@@ -1258,47 +1412,69 @@ export default function ProductionEnvironment() {
               Workflows
             </Typography>
 
-            {/* Workflow Selector Dropdown */}
-            <FormControl fullWidth size="small">
-              <InputLabel sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>Select Workflow</InputLabel>
-              <Select
-                value={selectedWorkflowId}
-                onChange={(e) => handleViewWorkflow(e.target.value)}
-                label="Select Workflow"
-                sx={{
-                  color: 'white',
-                  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.3)' },
-                  '& .MuiSvgIcon-root': { color: 'rgba(255, 255, 255, 0.7)' },
-                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(99, 102, 241, 0.5)' },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#818cf8' },
-                }}
-              >
-                {deployedWorkflows.map((workflow) => (
-                  <MenuItem key={workflow.id} value={workflow.id}>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        {workflow.name}
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
-                        <Chip
-                          label={workflow.status}
-                          size="small"
-                          sx={{
-                            height: 18,
-                            fontSize: 9,
-                            bgcolor: workflow.status === 'active' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(156, 163, 175, 0.2)',
-                            color: workflow.status === 'active' ? '#22c55e' : '#9ca3af',
-                          }}
-                        />
-                        <Typography variant="caption" sx={{ color: 'rgba(0, 0, 0, 0.6)', fontSize: 10 }}>
-                          {workflow.totalRuns > 0 ? `${workflow.successRate}% success` : 'Template'}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            {/* Workflow Selector Button */}
+            <Button
+              fullWidth
+              variant="outlined"
+              endIcon={<KeyboardArrowDown />}
+              onClick={(e) => setWorkflowMenuAnchor(e.currentTarget)}
+              sx={{
+                justifyContent: 'space-between',
+                textAlign: 'left',
+                color: 'white',
+                borderColor: 'rgba(255, 255, 255, 0.3)',
+                '&:hover': { borderColor: 'rgba(99, 102, 241, 0.5)', bgcolor: 'rgba(99, 102, 241, 0.05)' },
+                py: 1,
+              }}
+            >
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  {selectedWorkflow.name}
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.5)' }}>
+                  v{selectedWorkflow.version}
+                </Typography>
+              </Box>
+            </Button>
+
+            {/* Workflow Cards Menu */}
+            <Menu
+              anchorEl={workflowMenuAnchor}
+              open={Boolean(workflowMenuAnchor)}
+              onClose={() => setWorkflowMenuAnchor(null)}
+              PaperProps={{
+                sx: {
+                  bgcolor: 'rgba(17, 24, 39, 0.98)',
+                  border: '1px solid rgba(99, 102, 241, 0.3)',
+                  maxHeight: 500,
+                  width: 320,
+                  backdropFilter: 'blur(8px)',
+                },
+              }}
+            >
+              {deployedWorkflows.map((workflow) => (
+                <MenuItem
+                  key={workflow.id}
+                  onClick={() => {
+                    setWorkflowMenuAnchor(null);
+                    handleShowPreview(workflow.id);
+                  }}
+                  sx={{
+                    p: 0,
+                    '&:hover': { bgcolor: 'transparent' },
+                  }}
+                >
+                  <Box sx={{ width: '100%', p: 1.5 }}>
+                    <WorkflowCard
+                      title={workflow.name}
+                      description={`v${workflow.version} • ${workflow.totalRuns > 0 ? `${workflow.successRate}% success` : 'Template'}`}
+                      variant={workflow.status === 'active' ? 'primary' : 'default'}
+                      onClick={() => {}}
+                    />
+                  </Box>
+                </MenuItem>
+              ))}
+            </Menu>
 
             {/* Selected Workflow Stats */}
             {selectedWorkflow && (
@@ -1345,11 +1521,26 @@ export default function ProductionEnvironment() {
                 </Box>
               </Box>
             )}
-          </Box>
 
-          {/* Component Palette */}
-          <Box sx={{ flexGrow: 1, overflowY: 'auto', p: 2 }}>
-            <ComponentPalette />
+            {/* Component Palette Section */}
+            <Box sx={{
+              flexGrow: 1,
+              overflowY: 'auto',
+              p: 2,
+              borderTop: '1px solid rgba(255, 255, 255, 0.1)'
+            }}>
+              <Typography variant="subtitle2" sx={{
+                color: 'rgba(255, 255, 255, 0.7)',
+                mb: 2,
+                px: 1,
+                fontSize: 11,
+                textTransform: 'uppercase',
+                letterSpacing: 1
+              }}>
+                Workflow Components
+              </Typography>
+              <ComponentPalette onDragStart={handleComponentDragStart} />
+            </Box>
           </Box>
         </Drawer>
 
@@ -1371,18 +1562,6 @@ export default function ProductionEnvironment() {
         >
           {workflowSidebarOpen ? <ChevronLeft /> : <ChevronRight />}
         </IconButton>
-
-        {/* Execution State Panel */}
-        <ExecutionStatePanel
-          open={statePanelOpen}
-          onToggle={() => setStatePanelOpen(!statePanelOpen)}
-          variables={liveState.variables}
-          callStack={liveState.callStack}
-          memoryUsage={liveState.resources.memoryUsage}
-          cpuUsage={liveState.resources.cpuUsage}
-          queuedNodes={[]}
-          errors={[]}
-        />
 
         {/* Workflow Canvas - Read-Only Mode */}
         <Box sx={{ flexGrow: 1, position: 'relative', bgcolor: '#0f0f1e', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -1419,27 +1598,27 @@ export default function ProductionEnvironment() {
               title="Claims Detection"
               description="Detect misleading compliance claims"
               variant="primary"
-              onClick={() => handleLoadTemplate('claims-detection')}
+              onClick={() => handleShowTemplatePreview('claims-detection')}
             />
             <WorkflowCard
               title="Vendor Risk"
               description="Automated vendor risk assessment"
-              onClick={() => handleLoadTemplate('vendor-risk')}
+              onClick={() => handleShowTemplatePreview('vendor-risk')}
             />
             <WorkflowCard
               title="Access Review"
               description="Quarterly access review automation"
-              onClick={() => handleLoadTemplate('access-review')}
+              onClick={() => handleShowTemplatePreview('access-review')}
             />
             <WorkflowCard
               title="Policy Violation"
               description="Real-time policy violation detection"
-              onClick={() => handleLoadTemplate('policy-violation')}
+              onClick={() => handleShowTemplatePreview('policy-violation')}
             />
             <WorkflowCard
               title="Evidence Collection"
               description="Automated evidence gathering workflow"
-              onClick={() => handleLoadTemplate('evidence-collection')}
+              onClick={() => handleShowTemplatePreview('evidence-collection')}
             />
           </Box>
 
@@ -1465,16 +1644,22 @@ export default function ProductionEnvironment() {
             />
             <WorkflowCanvas
             key={selectedWorkflowId}
-            isReadOnly={true}
+            isReadOnly={false}
             showComponentPalette={false}
             showWorkflowCards={false}
             initialNodes={enrichedNodes}
             initialEdges={selectedWorkflow.edges}
             onNodeClick={handleCanvasNodeClick}
+            onNodesChange={handleNodesChange}
+            externalDraggedItem={draggedComponent}
+            onClearDraggedItem={() => setDraggedComponent(null)}
           />
             {/* Execution Timeline */}
-            {(executionStatus === 'running' || executionStatus === 'completed' || executionEvents.length > 0) && (
-              <ExecutionTimeline events={executionEvents} />
+            {timelineVisible && (executionStatus === 'running' || executionStatus === 'completed' || executionEvents.length > 0) && (
+              <ExecutionTimeline
+                events={executionEvents}
+                onClose={() => setTimelineVisible(false)}
+              />
             )}
           </Box>
         </Box>
@@ -1525,6 +1710,31 @@ export default function ProductionEnvironment() {
         onEnableAll={handleEnableAllBreakpoints}
         onDisableAll={handleDisableAllBreakpoints}
         onRemoveAll={handleRemoveAllBreakpoints}
+      />
+
+      {/* Workflow Preview Popup */}
+      <WorkflowPreviewPopup
+        open={previewPopupOpen}
+        onClose={() => setPreviewPopupOpen(false)}
+        onSelect={handleSelectFromPreview}
+        workflow={previewWorkflowId ? (
+          deployedWorkflows.find(w => w.id === previewWorkflowId) ||
+          Object.values(workflowTemplates).find(t => t.id === previewWorkflowId)
+            ? {
+                ...Object.values(workflowTemplates).find(t => t.id === previewWorkflowId)!,
+                lastRun: 'Never',
+                totalRuns: 0,
+                successRate: 0,
+                avgExecutionTime: 'N/A',
+              }
+            : undefined
+        ) : undefined}
+      />
+
+      {/* Chatbot Widget */}
+      <ChatbotWidget
+        onWorkflowPreview={handleShowPreview}
+        onComponentInfo={(componentId) => console.log('Component info:', componentId)}
       />
 
     </Box>

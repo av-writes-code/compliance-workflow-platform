@@ -6,6 +6,7 @@ import WorkflowCard from '../components/workflow/WorkflowCard';
 import PrototypeToolbar from '../components/workflow/PrototypeToolbar';
 import ExecutionPanel from '../components/workflow/ExecutionPanel';
 import EvaluationsDrawer from '../components/workflow/EvaluationsDrawer';
+import ChatbotWidget from '../components/workflow/ChatbotWidget';
 import { saveWorkflow, loadWorkflow, exportWorkflowJSON } from '../utils/workflowStorage';
 import { workflowTemplates } from '../data/workflowTemplates';
 
@@ -171,63 +172,6 @@ export default function PrototypeStation() {
         onOpenEvaluations={() => setEvaluationsDrawerOpen(true)}
       />
 
-      {/* Workflow Templates Bar */}
-      <Box
-        sx={{
-          width: '100%',
-          pt: 1.5,
-          pb: 1.5,
-          px: 3,
-          bgcolor: 'rgba(17, 24, 39, 0.98)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-          display: 'flex',
-          flexWrap: 'nowrap',
-          gap: 3,
-          overflowX: 'auto',
-          flexShrink: 0,
-          '&::-webkit-scrollbar': {
-            height: 8,
-          },
-          '&::-webkit-scrollbar-track': {
-            bgcolor: 'rgba(255, 255, 255, 0.05)',
-          },
-          '&::-webkit-scrollbar-thumb': {
-            bgcolor: 'rgba(99, 102, 241, 0.3)',
-            borderRadius: 1,
-            '&:hover': {
-              bgcolor: 'rgba(99, 102, 241, 0.5)',
-            },
-          },
-        }}
-      >
-        <WorkflowCard
-          title="Claims Detection"
-          description="Detect misleading compliance claims"
-          variant="primary"
-          onClick={() => handleLoadTemplate('claims-detection')}
-        />
-        <WorkflowCard
-          title="Vendor Risk"
-          description="Automated vendor risk assessment"
-          onClick={() => handleLoadTemplate('vendor-risk')}
-        />
-        <WorkflowCard
-          title="Access Review"
-          description="Quarterly access review automation"
-          onClick={() => handleLoadTemplate('access-review')}
-        />
-        <WorkflowCard
-          title="Policy Violation"
-          description="Real-time policy violation detection"
-          onClick={() => handleLoadTemplate('policy-violation')}
-        />
-        <WorkflowCard
-          title="Evidence Collection"
-          description="Automated evidence gathering workflow"
-          onClick={() => handleLoadTemplate('evidence-collection')}
-        />
-      </Box>
-
       <Box sx={{ flexGrow: 1, position: 'relative' }}>
         <WorkflowCanvas
           initialNodes={nodes}
@@ -276,6 +220,12 @@ export default function PrototypeStation() {
         environment="prototype"
         workflowId="prototype-workflow"
         workflowName="Current Prototype Workflow"
+      />
+
+      {/* Chatbot Widget */}
+      <ChatbotWidget
+        onWorkflowPreview={(workflowId) => handleLoadTemplate(workflowId)}
+        onComponentInfo={(componentId) => console.log('Component info:', componentId)}
       />
     </Box>
   );
