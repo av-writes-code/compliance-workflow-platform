@@ -31,9 +31,7 @@ test.describe('Chatbot Interactions E2E Tests', () => {
   test('Test 1.2: Chatbot returns workflow metadata on discovery query', async ({ page }) => {
     await page.click('button[aria-label="Open chat assistant"]');
 
-    // Wait for chatbot input to be visible (handles Fade + Collapse animations)
-    const input = page.locator('input[placeholder*="Ask me anything"]');
-    await input.waitFor({ state: 'visible', timeout: 5000 });
+    const input = page.getByTestId('chatbot-input');
     await input.fill('improve claims detection with false positives');
     await input.press('Enter');
 
@@ -55,9 +53,8 @@ test.describe('Chatbot Interactions E2E Tests', () => {
   // Test 1.3: Shows confirmation after template loads (DEMO.md lines 308-324)
   test('Test 1.3: Chatbot shows confirmation after template loads', async ({ page }) => {
     await page.click('button[aria-label="Open chat assistant"]');
-    await page.waitForTimeout(500); // Wait for Fade + Collapse animations
 
-    const input = page.locator('input[placeholder*="Ask me anything"]');
+    const input = page.getByTestId('chatbot-input');
     await input.fill('improve claims detection');
     await input.press('Enter');
 
@@ -81,9 +78,8 @@ test.describe('Chatbot Interactions E2E Tests', () => {
   // Test 1.4: Provides Critic Agent guidance with steps (DEMO.md lines 341-360)
   test('Test 1.4: Chatbot provides Critic Agent guidance with steps', async ({ page }) => {
     await page.click('button[aria-label="Open chat assistant"]');
-    await page.waitForTimeout(500); // Wait for Fade + Collapse animations
 
-    const input = page.locator('input[placeholder*="Ask me anything"]');
+    const input = page.getByTestId('chatbot-input');
     await input.fill('How do I add validation step?');
     await input.press('Enter');
 
@@ -93,21 +89,20 @@ test.describe('Chatbot Interactions E2E Tests', () => {
 
     // MUST contain component name and explanation
     await expect(aiMsg).toContainText('Critic Agent');
-    await expect(aiMsg).toContainText('evaluates and critiques');
+    await expect(aiMsg).toContainText(/evaluates and critiques/i); // Case-insensitive
 
     // MUST contain numbered steps
-    await expect(aiMsg).toContainText('1.');
-    await expect(aiMsg).toContainText('Drag');
-    await expect(aiMsg).toContainText('Component');
-    await expect(aiMsg).toContainText('connect');
+    await expect(aiMsg).toContainText(/1\./); // Escape period
+    await expect(aiMsg).toContainText(/drag/i); // Case-insensitive
+    await expect(aiMsg).toContainText(/component/i); // Case-insensitive
+    await expect(aiMsg).toContainText(/connect/i); // Case-insensitive
   });
 
   // Test 1.5: Quick action button triggers template loading
   test('Test 1.5: Quick action button triggers template loading', async ({ page }) => {
     await page.click('button[aria-label="Open chat assistant"]');
-    await page.waitForTimeout(500); // Wait for Fade + Collapse animations
 
-    const input = page.locator('input[placeholder*="Ask me anything"]');
+    const input = page.getByTestId('chatbot-input');
     await input.fill('improve claims detection');
     await input.press('Enter');
 

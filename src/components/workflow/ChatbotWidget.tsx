@@ -136,7 +136,7 @@ export default function ChatbotWidget({
     const lowerQuery = query.toLowerCase();
 
     // Enhanced workflow discovery with metadata (Test 1.2)
-    if ((lowerQuery.includes('improve') || lowerQuery.includes('false positive')) && lowerQuery.includes('claims')) {
+    if ((lowerQuery.includes('improve') || lowerQuery.includes('false positive')) && lowerQuery.includes('claim')) {
       const template = workflowTemplates['claims-detection'];
       return {
         content:
@@ -429,6 +429,7 @@ export default function ChatbotWidget({
                 onKeyPress={handleKeyPress}
                 multiline
                 maxRows={3}
+                inputProps={{ 'data-testid': 'chatbot-input' }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     color: 'white',

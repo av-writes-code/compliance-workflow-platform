@@ -240,20 +240,33 @@
           - button "Close chat" [ref=e366] [cursor=pointer]:
             - img [ref=e367]
       - generic [ref=e371]:
-        - generic [ref=e373]:
-          - img [ref=e375]
-          - generic [ref=e377]:
-            - paragraph [ref=e379]: "Hi! I'm your compliance workflow assistant. I can help you: • Find and preview workflows • Learn about workflow components • Guide you through building workflows • Answer compliance questions What would you like to know?"
-            - generic [ref=e380]:
-              - button "Show me workflows" [ref=e381] [cursor=pointer]:
-                - generic [ref=e382]: Show me workflows
-              - button "How does Loop work?" [ref=e383] [cursor=pointer]:
-                - generic [ref=e384]: How does Loop work?
-              - button "Create a new workflow" [ref=e385] [cursor=pointer]:
-                - generic [ref=e386]: Create a new workflow
-        - generic [ref=e388]:
-          - generic [ref=e390]:
-            - textbox "Ask me anything..." [ref=e391]
+        - generic [ref=e372]:
+          - generic [ref=e373]:
+            - img [ref=e375]
+            - generic [ref=e377]:
+              - paragraph [ref=e379]: "Hi! I'm your compliance workflow assistant. I can help you: • Find and preview workflows • Learn about workflow components • Guide you through building workflows • Answer compliance questions What would you like to know?"
+              - generic [ref=e380]:
+                - button "Show me workflows" [ref=e381] [cursor=pointer]:
+                  - generic [ref=e382]: Show me workflows
+                - button "How does Loop work?" [ref=e383] [cursor=pointer]:
+                  - generic [ref=e384]: How does Loop work?
+                - button "Create a new workflow" [ref=e385] [cursor=pointer]:
+                  - generic [ref=e386]: Create a new workflow
+          - generic [ref=e387]:
+            - img [ref=e389]
+            - paragraph [ref=e393]: improve claims detection with false positives
+          - generic [ref=e394]:
+            - img [ref=e396]
+            - generic [ref=e398]:
+              - paragraph [ref=e400]: "I can help! False positives often happen when decisions lack validation. The **Claims Detection** workflow is perfect for this: 📊 Workflow Details: • 8 nodes • Integrations: Claude Chat Model, Postgres Chat Memory • Current performance: 87% accuracy • Status: Active in production (v1.0.0) This template includes fraud detection and policy validation layers."
+              - generic [ref=e401]:
+                - button "Tell me more" [ref=e402] [cursor=pointer]:
+                  - generic [ref=e403]: Tell me more
+                - button "Load this template" [ref=e404] [cursor=pointer]:
+                  - generic [ref=e405]: Load this template
+        - generic [ref=e407]:
+          - generic [ref=e409]:
+            - textbox "Ask me anything..." [active] [ref=e410]
             - group
           - button "Send message" [disabled]:
             - img
