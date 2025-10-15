@@ -20,6 +20,7 @@ import {
   Minimize,
   OpenInFull,
 } from '@mui/icons-material';
+import { workflowTemplates } from '../../data/workflowTemplates';
 
 interface Message {
   id: string;
@@ -32,11 +33,15 @@ interface Message {
 interface ChatbotWidgetProps {
   onWorkflowPreview?: (workflowId: string) => void;
   onComponentInfo?: (componentId: string) => void;
+  onLoadTemplate?: (templateId: string) => void;
+  externalMessage?: string | null;
 }
 
 export default function ChatbotWidget({
   onWorkflowPreview,
   onComponentInfo,
+  onLoadTemplate,
+  externalMessage,
 }: ChatbotWidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -64,6 +69,19 @@ export default function ChatbotWidget({
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Handle external messages from parent
+  useEffect(() => {
+    if (externalMessage) {
+      const assistantMessage: Message = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: externalMessage,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
+    }
+  }, [externalMessage]);
 
   const handleQuickAction = (action: string) => {
     let query = '';
@@ -117,6 +135,26 @@ export default function ChatbotWidget({
   const generateResponse = (query: string): { content: string; quickActions?: { label: string; action: () => void }[] } => {
     const lowerQuery = query.toLowerCase();
 
+    // Enhanced workflow discovery with metadata (Test 1.2)
+    if ((lowerQuery.includes('improve') || lowerQuery.includes('false positive')) && lowerQuery.includes('claims')) {
+      const template = workflowTemplates['claims-detection'];
+      return {
+        content:
+          `I can help! False positives often happen when decisions lack validation.\n` +
+          `The **${template.name}** workflow is perfect for this:\n\n` +
+          `📊 Workflow Details:\n` +
+          `  • ${template.metadata.nodeCount} nodes\n` +
+          `  • Integrations: ${template.metadata.integrations.join(', ')}\n` +
+          `  • Current performance: ${template.metadata.baselineAccuracy}% accuracy\n` +
+          `  • Status: Active in production (v1.0.0)\n\n` +
+          `This template includes fraud detection and policy validation layers.`,
+        quickActions: [
+          { label: 'Tell me more', action: () => handleQuickAction('explain-claims') },
+          { label: 'Load this template', action: () => onLoadTemplate?.('claims-detection') },
+        ],
+      };
+    }
+
     // Workflow discovery
     if (lowerQuery.includes('show') && lowerQuery.includes('workflow')) {
       return {
@@ -141,13 +179,32 @@ export default function ChatbotWidget({
 
     if (lowerQuery.includes('ai agent')) {
       return {
-        content: '**AI Agent** executes LLM tasks like analysis, generation, and classification.\n\n**Key features:**\n• Connect to OpenAI, Anthropic, or custom LLMs\n• Define custom prompts\n• Stream responses\n• Handle retries and errors\n\n**Common use cases:**\n• Text classification\n• Data extraction\n• Content generation\n• Sentiment analysis',
+        content: '**AI Agent** executes LLM tasks like analysis, generation, and classification.\n\n**Key features:**\n• Connect to Claude (Anthropic), OpenAI, or custom LLMs\n• Define custom prompts\n• Stream responses\n• Handle retries and errors\n\n**Common use cases:**\n• Text classification\n• Data extraction\n• Content generation\n• Sentiment analysis',
       };
     }
 
     if (lowerQuery.includes('critic')) {
       return {
         content: '**Critic Agent** evaluates and critiques AI-generated content.\n\n**How it works:**\n• Receives output from another agent\n• Analyzes quality, accuracy, compliance\n• Provides structured feedback\n• Can trigger refinement loops\n\n**Use for:**\n• Quality assurance\n• Compliance checking\n• Multi-step reasoning\n• Self-correction flows',
+      };
+    }
+
+    // Component guidance for adding validation (Test 1.4)
+    if (lowerQuery.includes('validation') || (lowerQuery.includes('add') && lowerQuery.includes('step'))) {
+      return {
+        content:
+          `Great idea! You can use a **Critic Agent** to validate AI outputs.\n\n` +
+          `🤖 Critic Agent:\n` +
+          `  • Purpose: Evaluates and critiques AI-generated content\n` +
+          `  • Use case: Quality assurance, compliance checking\n` +
+          `  • Configuration: Define validation criteria\n\n` +
+          `📍 How to add it:\n` +
+          `  1. Drag 'Critic Agent' from Components palette (left side)\n` +
+          `  2. Drop between 'AI Agent' and 'Decision' nodes\n` +
+          `  3. Connect: AI Agent → Critic Agent → Decision`,
+        quickActions: [
+          { label: 'Show me Critic Agent in palette', action: () => onComponentInfo?.('critic-agent') },
+        ],
       };
     }
 
@@ -190,6 +247,7 @@ export default function ChatbotWidget({
   if (!isOpen) {
     return (
       <IconButton
+        aria-label="Open chat assistant"
         onClick={() => setIsOpen(true)}
         sx={{
           position: 'fixed',
@@ -260,7 +318,7 @@ export default function ChatbotWidget({
             <IconButton size="small" onClick={() => setIsMinimized(!isMinimized)} sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
               {isMinimized ? <OpenInFull sx={{ fontSize: 18 }} /> : <Minimize sx={{ fontSize: 18 }} />}
             </IconButton>
-            <IconButton size="small" onClick={() => setIsOpen(false)} sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+            <IconButton aria-label="Close chat" size="small" onClick={() => setIsOpen(false)} sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
               <Close sx={{ fontSize: 18 }} />
             </IconButton>
           </Box>
@@ -281,6 +339,7 @@ export default function ChatbotWidget({
             {messages.map((message) => (
               <Box
                 key={message.id}
+                data-message-role={message.role}
                 sx={{
                   display: 'flex',
                   gap: 1,
@@ -381,6 +440,7 @@ export default function ChatbotWidget({
                 }}
               />
               <IconButton
+                aria-label="Send message"
                 onClick={() => handleSendMessage()}
                 disabled={!input.trim()}
                 sx={{

@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Box, Typography, Chip, Drawer, IconButton, Button, Select, MenuItem, FormControl, InputLabel, Menu } from '@mui/material';
 import { SmartToy, Memory, Security, ChevronLeft, ChevronRight, History, Edit, BugReport, KeyboardArrowDown } from '@mui/icons-material';
 import EvaluationsButton from '../components/workflow/EvaluationsButton';
@@ -17,6 +18,7 @@ import WorkflowPreviewPopup from '../components/workflow/WorkflowPreviewPopup';
 import ChatbotWidget from '../components/workflow/ChatbotWidget';
 import WorkflowCanvas from './WorkflowCanvas';
 import { Node, Edge } from 'reactflow';
+import { getDeployedWorkflows, DeployedWorkflow as StoredDeployedWorkflow } from '../utils/demoDataStore';
 
 interface DeployedWorkflow {
   id: string;
@@ -39,10 +41,118 @@ interface Breakpoint {
   condition?: string;
 }
 
+// Mock deployed workflows (defined at module level to avoid hoisting issues)
+const mockDeployedWorkflows: DeployedWorkflow[] = [
+  {
+    id: 'workflow-1',
+    name: 'Claims Detection v2',
+    version: '2.1.0',
+    status: 'active',
+    lastRun: '2 hours ago',
+    totalRuns: 12847,
+    successRate: 98.4,
+    avgExecutionTime: '3.2s',
+    nodes: [
+      {
+        id: '1',
+        type: 'standard',
+        position: { x: 100, y: 200 },
+        data: {
+          label: 'Data Ingestion',
+          subtitle: 'Claims API',
+          icon: 'Memory',
+        },
+      },
+      {
+        id: '2',
+        type: 'standard',
+        position: { x: 400, y: 200 },
+        data: {
+          label: 'AI Agent',
+          subtitle: 'Claude Sonnet 4.5',
+          icon: 'SmartToy',
+        },
+      },
+      {
+        id: '3',
+        type: 'decision',
+        position: { x: 700, y: 180 },
+        data: {
+          label: 'Compliance Check',
+        },
+      },
+      {
+        id: '4',
+        type: 'standard',
+        position: { x: 900, y: 100 },
+        data: {
+          label: 'Approve',
+          subtitle: 'Compliant',
+          icon: 'Security',
+        },
+      },
+      {
+        id: '5',
+        type: 'standard',
+        position: { x: 900, y: 280 },
+        data: {
+          label: 'Flag for Review',
+          subtitle: 'Manual Check',
+          icon: 'Security',
+        },
+      },
+    ],
+    edges: [
+      { id: 'e1-2', source: '1', target: '2', data: {} },
+      { id: 'e2-3', source: '2', target: '3', data: {} },
+      { id: 'e3-4', source: '3', target: '4', sourceHandle: 'true', data: { branchLabel: 'compliant' } },
+      { id: 'e3-5', source: '3', target: '5', sourceHandle: 'false', data: { branchLabel: 'violation' } },
+    ],
+  },
+  {
+    id: 'workflow-2',
+    name: 'Fraud Detection',
+    version: '1.5.2',
+    status: 'active',
+    lastRun: '15 minutes ago',
+    totalRuns: 45231,
+    successRate: 99.1,
+    avgExecutionTime: '1.8s',
+    nodes: [
+      {
+        id: '1',
+        type: 'standard',
+        position: { x: 150, y: 250 },
+        data: { label: 'Transaction Data', subtitle: 'Payment Gateway', icon: 'Memory' },
+      },
+      {
+        id: '2',
+        type: 'standard',
+        position: { x: 450, y: 250 },
+        data: { label: 'Risk Scoring', subtitle: 'ML Model', icon: 'SmartToy' },
+      },
+    ],
+    edges: [{ id: 'e1-2', source: '1', target: '2', data: {} }],
+  },
+  {
+    id: 'workflow-3',
+    name: 'Content Moderation',
+    version: '3.0.0',
+    status: 'inactive',
+    lastRun: '3 days ago',
+    totalRuns: 8924,
+    successRate: 96.7,
+    avgExecutionTime: '2.5s',
+    nodes: [],
+    edges: [],
+  },
+];
+
 export default function ProductionEnvironment() {
+  const location = useLocation();
   const [evaluationsDrawerOpen, setEvaluationsDrawerOpen] = useState(false);
   const [workflowSidebarOpen, setWorkflowSidebarOpen] = useState(true);
-  const [selectedWorkflowId, setSelectedWorkflowId] = useState('workflow-1');
+  const [selectedWorkflowId, setSelectedWorkflowId] = useState<string>('');
   const [executionStatus, setExecutionStatus] = useState<'idle' | 'running' | 'paused' | 'completed' | 'failed'>('idle');
   const [executionTime, setExecutionTime] = useState('0s');
   const [completedSteps, setCompletedSteps] = useState(0);
@@ -65,6 +175,25 @@ export default function ProductionEnvironment() {
   const [timelineVisible, setTimelineVisible] = useState(true);
   const [draggedComponent, setDraggedComponent] = useState<any>(null);
   const [userAddedNodes, setUserAddedNodes] = useState<Node[]>([]);
+  const [deployedWorkflows, setDeployedWorkflows] = useState<DeployedWorkflow[]>([]);
+
+  // Load deployed workflows from localStorage on mount and when location changes
+  useEffect(() => {
+    console.log('[ProductionEnvironment] Loading workflows from localStorage');
+    const workflows = getDeployedWorkflows();
+    console.log('[ProductionEnvironment] Loaded workflows:', workflows.length);
+
+    // Merge with mock data (existing hard-coded workflows)
+    const mergedWorkflows = [...workflows, ...mockDeployedWorkflows];
+    console.log('[ProductionEnvironment] Total workflows after merge:', mergedWorkflows.length);
+    setDeployedWorkflows(mergedWorkflows);
+
+    // Auto-select first (most recent) workflow if none selected
+    if (mergedWorkflows.length > 0 && !selectedWorkflowId) {
+      console.log('[ProductionEnvironment] Auto-selecting first workflow:', mergedWorkflows[0].name);
+      setSelectedWorkflowId(mergedWorkflows[0].id);
+    }
+  }, [location.key]); // Re-run on every navigation (location.key changes with each navigation)
 
   // Runtime state for nodes (separate from workflow definitions)
   interface NodeRuntimeState {
@@ -165,7 +294,7 @@ export default function ProductionEnvironment() {
         },
       },
       llmMetrics: node.data.label.includes('AI') || node.data.label.includes('Agent') ? {
-        model: 'gpt-4-turbo',
+        model: 'claude-sonnet-4',
         temperature: 0.7,
         inputTokens: Math.floor(Math.random() * 1000) + 500,
         outputTokens: Math.floor(Math.random() * 500) + 200,
@@ -756,7 +885,6 @@ export default function ProductionEnvironment() {
     });
   };
 
-  // Mock deployed workflows data
   // Template workflow definitions
   const workflowTemplates: Record<string, Omit<DeployedWorkflow, 'lastRun' | 'totalRuns' | 'successRate' | 'avgExecutionTime'>> = {
     'claims-detection': {
@@ -1168,158 +1296,6 @@ export default function ProductionEnvironment() {
     setNodeRuntimeState({});
   };
 
-  const deployedWorkflows: DeployedWorkflow[] = [
-    {
-      id: 'workflow-1',
-      name: 'Claims Detection v2',
-      version: '2.1.0',
-      status: 'active',
-      lastRun: '2 hours ago',
-      totalRuns: 12847,
-      successRate: 98.4,
-      avgExecutionTime: '3.2s',
-      nodes: [
-        {
-          id: '1',
-          type: 'standard',
-          position: { x: 100, y: 200 },
-          data: {
-            label: 'Data Ingestion',
-            subtitle: 'Claims API',
-            icon: 'Memory',
-            onInspect: () => handleInspectNode('1'),
-            onToggleBreakpoint: () => handleToggleNodeBreakpoint('1'),
-          },
-        },
-        {
-          id: '2',
-          type: 'standard',
-          position: { x: 400, y: 200 },
-          data: {
-            label: 'AI Agent',
-            subtitle: 'Claude Sonnet 4.5',
-            icon: 'SmartToy',
-            onInspect: () => handleInspectNode('2'),
-            onToggleBreakpoint: () => handleToggleNodeBreakpoint('2'),
-          },
-        },
-        {
-          id: '3',
-          type: 'decision',
-          position: { x: 700, y: 180 },
-          data: {
-            label: 'Compliance Check',
-            onInspect: () => handleInspectNode('3'),
-            onToggleBreakpoint: () => handleToggleNodeBreakpoint('3'),
-          },
-        },
-        {
-          id: '4',
-          type: 'standard',
-          position: { x: 900, y: 100 },
-          data: {
-            label: 'Approve',
-            subtitle: 'Compliant',
-            icon: 'Security',
-            onInspect: () => handleInspectNode('4'),
-            onToggleBreakpoint: () => handleToggleNodeBreakpoint('4'),
-          },
-        },
-        {
-          id: '5',
-          type: 'standard',
-          position: { x: 900, y: 280 },
-          data: {
-            label: 'Flag for Review',
-            subtitle: 'Manual Check',
-            icon: 'Security',
-            onInspect: () => handleInspectNode('5'),
-            onToggleBreakpoint: () => handleToggleNodeBreakpoint('5'),
-          },
-        },
-      ],
-      edges: [
-        { id: 'e1-2', source: '1', target: '2', data: {} },
-        { id: 'e2-3', source: '2', target: '3', data: {} },
-        { id: 'e3-4', source: '3', target: '4', sourceHandle: 'true', data: { branchLabel: 'compliant' } },
-        { id: 'e3-5', source: '3', target: '5', sourceHandle: 'false', data: { branchLabel: 'violation' } },
-      ],
-    },
-    {
-      id: 'workflow-2',
-      name: 'Fraud Detection',
-      version: '1.5.2',
-      status: 'active',
-      lastRun: '15 minutes ago',
-      totalRuns: 45231,
-      successRate: 99.1,
-      avgExecutionTime: '1.8s',
-      nodes: [
-        {
-          id: '1',
-          type: 'standard',
-          position: { x: 150, y: 250 },
-          data: { label: 'Transaction Data', subtitle: 'Payment Gateway', icon: 'Memory' },
-        },
-        {
-          id: '2',
-          type: 'standard',
-          position: { x: 450, y: 250 },
-          data: { label: 'Risk Scoring', subtitle: 'ML Model', icon: 'SmartToy' },
-        },
-      ],
-      edges: [{ id: 'e1-2', source: '1', target: '2', data: {} }],
-    },
-    {
-      id: 'workflow-3',
-      name: 'Content Moderation',
-      version: '3.0.0',
-      status: 'inactive',
-      lastRun: '3 days ago',
-      totalRuns: 8924,
-      successRate: 96.7,
-      avgExecutionTime: '2.5s',
-      nodes: [],
-      edges: [],
-    },
-    // Add template workflows
-    {
-      ...workflowTemplates['claims-detection'],
-      lastRun: 'Never',
-      totalRuns: 0,
-      successRate: 0,
-      avgExecutionTime: '0s',
-    },
-    {
-      ...workflowTemplates['vendor-risk'],
-      lastRun: 'Never',
-      totalRuns: 0,
-      successRate: 0,
-      avgExecutionTime: '0s',
-    },
-    {
-      ...workflowTemplates['access-review'],
-      lastRun: 'Never',
-      totalRuns: 0,
-      successRate: 0,
-      avgExecutionTime: '0s',
-    },
-    {
-      ...workflowTemplates['policy-violation'],
-      lastRun: 'Never',
-      totalRuns: 0,
-      successRate: 0,
-      avgExecutionTime: '0s',
-    },
-    {
-      ...workflowTemplates['evidence-collection'],
-      lastRun: 'Never',
-      totalRuns: 0,
-      successRate: 0,
-      avgExecutionTime: '0s',
-    },
-  ];
-
   const selectedWorkflow =
     deployedWorkflows.find(w => w.id === selectedWorkflowId) ||
     Object.values(workflowTemplates).find(t => t.id === selectedWorkflowId) ||
@@ -1329,6 +1305,7 @@ export default function ProductionEnvironment() {
   // Merge template nodes + user-added nodes, then enrich all with runtime state
   const enrichedNodes = useMemo(
     () => {
+      if (!selectedWorkflow) return [];
       const allNodes = [...selectedWorkflow.nodes, ...userAddedNodes];
       return allNodes.map(node => ({
         ...node,
@@ -1343,8 +1320,19 @@ export default function ProductionEnvironment() {
     [selectedWorkflowId, userAddedNodes, JSON.stringify(nodeRuntimeState)] // Use stable stringified comparison
   );
 
+  // Early return if no workflow selected (prevents crashes)
+  if (!selectedWorkflow) {
+    return (
+      <Box data-testid="production-environment" sx={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#0f0f1e' }}>
+        <Typography variant="h6" sx={{ color: 'rgba(255, 255, 255, 0.5)' }}>
+          No workflows available. Deploy a workflow from Prototype Station.
+        </Typography>
+      </Box>
+    );
+  }
+
   return (
-    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: '#0f0f1e' }}>
+    <Box data-testid="production-environment" sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: '#0f0f1e' }}>
       {/* Header with Auth Banner and Evaluations Button */}
       <Box sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 2, borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
         <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>

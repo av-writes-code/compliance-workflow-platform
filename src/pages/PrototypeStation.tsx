@@ -1,14 +1,18 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Box, Snackbar, Alert, Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material';
 import { Node, Edge } from 'reactflow';
+import { useNavigate } from 'react-router-dom';
+import { useSnackbar } from 'notistack';
 import WorkflowCanvas from './WorkflowCanvas';
 import WorkflowCard from '../components/workflow/WorkflowCard';
 import PrototypeToolbar from '../components/workflow/PrototypeToolbar';
 import ExecutionPanel from '../components/workflow/ExecutionPanel';
 import EvaluationsDrawer from '../components/workflow/EvaluationsDrawer';
 import ChatbotWidget from '../components/workflow/ChatbotWidget';
+import DeploymentDialog from '../components/workflow/DeploymentDialog';
 import { saveWorkflow, loadWorkflow, exportWorkflowJSON } from '../utils/workflowStorage';
 import { workflowTemplates } from '../data/workflowTemplates';
+import { addDeployedWorkflow, DeployedWorkflow } from '../utils/demoDataStore';
 
 interface ExecutionLog {
   timestamp: string;
@@ -33,6 +37,11 @@ export default function PrototypeStation() {
   const [executionLogs, setExecutionLogs] = useState<ExecutionLog[]>([]);
   const [executionProgress, setExecutionProgress] = useState(0);
   const [evaluationsDrawerOpen, setEvaluationsDrawerOpen] = useState(false);
+  const [chatbotMessage, setChatbotMessage] = useState<string | null>(null);
+  const [deployDialogOpen, setDeployDialogOpen] = useState(false);
+
+  const navigate = useNavigate();
+  const { enqueueSnackbar } = useSnackbar();
 
   // Load persisted state on mount
   useEffect(() => {
@@ -153,12 +162,49 @@ export default function PrototypeStation() {
       setEdges(template.edges);
       setExecutionLogs([]);
       setSnackbar({ open: true, message: `Loaded template: ${template.name}`, severity: 'success' });
+
+      // Trigger chatbot confirmation (Test 1.3)
+      setChatbotMessage(
+        `✓ Loaded **${template.name}**! The canvas now shows all ${template.metadata.nodeCount} nodes. ` +
+        `You can customize any node by clicking it, or ask me to add components.`
+      );
+
+      // Reset message after brief delay
+      setTimeout(() => setChatbotMessage(null), 100);
     }
   }, []);
 
   const handleLoadWorkflowCard = useCallback((templateId: string) => {
     handleLoadTemplate(templateId);
   }, [handleLoadTemplate]);
+
+  const handleDeploy = useCallback(async (data: { version: string; workflowName: string }) => {
+    const { version, workflowName } = data;
+    const newWorkflow: DeployedWorkflow = {
+      id: `workflow-${Date.now()}`,
+      name: workflowName,
+      version,
+      status: 'active',
+      lastRun: 'Just now',
+      totalRuns: 0,
+      successRate: 0,
+      avgExecutionTime: '0s',
+      nodes,
+      edges,
+    };
+
+    // 1. Write to localStorage (synchronous)
+    addDeployedWorkflow(newWorkflow);
+
+    // 2. Wait 100ms for flush (race condition prevention)
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // 3. Navigate to production
+    navigate('/production');
+
+    // 4. Show success message
+    enqueueSnackbar(`Deployed ${workflowName} v${version}`, { variant: 'success' });
+  }, [nodes, edges, navigate, enqueueSnackbar]);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -170,6 +216,7 @@ export default function PrototypeStation() {
         onExport={handleExport}
         onLoadTemplate={handleLoadTemplate}
         onOpenEvaluations={() => setEvaluationsDrawerOpen(true)}
+        onDeploy={() => setDeployDialogOpen(true)}
       />
 
       <Box sx={{ flexGrow: 1, position: 'relative' }}>
@@ -226,6 +273,16 @@ export default function PrototypeStation() {
       <ChatbotWidget
         onWorkflowPreview={(workflowId) => handleLoadTemplate(workflowId)}
         onComponentInfo={(componentId) => console.log('Component info:', componentId)}
+        onLoadTemplate={handleLoadTemplate}
+        externalMessage={chatbotMessage}
+      />
+
+      {/* Deployment Dialog */}
+      <DeploymentDialog
+        open={deployDialogOpen}
+        onClose={() => setDeployDialogOpen(false)}
+        onDeploy={handleDeploy}
+        workflowName="Claims Detection v2"
       />
     </Box>
   );

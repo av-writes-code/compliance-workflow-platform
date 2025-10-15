@@ -13,6 +13,9 @@ import {
   Divider,
 } from '@mui/material';
 import { PlayArrow, Speed, History, SaveAlt, Code, Gavel, Person, Settings, CheckCircle } from '@mui/icons-material';
+import { useSnackbar } from 'notistack';
+import { runEvaluation } from '../../utils/evaluationEngine';
+import { addEvaluationRun, getBaselineRun, EvaluationRun } from '../../utils/demoDataStore';
 import BuiltInEvalsConfigDialog from './BuiltInEvalsConfigDialog';
 import LLMJudgeConfigDialog from './LLMJudgeConfigDialog';
 import CustomCodeConfigDialog from './CustomCodeConfigDialog';
@@ -35,6 +38,7 @@ export default function RunEvaluationTab({
   const [progress, setProgress] = useState(0);
   const [configDialogOpen, setConfigDialogOpen] = useState<string | null>(null);
   const [configurations, setConfigurations] = useState<Record<string, any>>({});
+  const { enqueueSnackbar } = useSnackbar();
 
   const datasets = [
     { id: '1', name: 'GDPR Regulation Dataset', testCases: 28 },
@@ -74,16 +78,56 @@ export default function RunEvaluationTab({
   ];
 
   const handleQuickTest = async () => {
+    const dataset = datasets.find(d => d.id === selectedDataset);
+    if (!dataset) return;
+
     setIsRunning(true);
     setProgress(0);
 
-    // Mock execution
+    // Animate progress: 10 steps @ 300ms = 3000ms (DEMO.md Test 2.1)
     for (let i = 0; i <= 100; i += 10) {
       await new Promise((resolve) => setTimeout(resolve, 300));
       setProgress(i);
     }
 
+    // Run actual evaluation
+    const mockTestCases = new Array(dataset.testCases).fill({});
+    const result = runEvaluation(
+      workflowId || 'v2.0',
+      dataset.id,
+      mockTestCases
+    );
+
+    // Save result
+    const newRun: EvaluationRun = {
+      id: Date.now().toString(),
+      workflowName: workflowName || 'Claims Detection v2.0.0',
+      datasetName: dataset.name,
+      accuracy: result.accuracy, // 94 (DEMO.md Test 2.2 line 110)
+      latency: result.latency,
+      passedTests: result.passedTests, // 49 (DEMO.md Test 2.2 line 115)
+      totalTests: result.totalTests,
+      timestamp: new Date().toLocaleString(),
+      status: result.accuracy >= 90 ? 'success' : 'warning',
+    };
+
+    addEvaluationRun(newRun);
     setIsRunning(false);
+
+    // Get baseline for comparison (DEMO.md Test 2.2 line 109)
+    const baseline = getBaselineRun(dataset.name);
+    if (baseline) {
+      const improvement = result.accuracy - baseline.accuracy; // 7% (DEMO.md Test 2.2 line 111)
+      enqueueSnackbar(
+        `🎉 ${result.accuracy}% accuracy - outperforms baseline by ${improvement}%!`, // ← DEMO.md Test 2.2 line 110-111
+        { variant: 'success' }
+      );
+    } else {
+      enqueueSnackbar(
+        `✅ ${result.accuracy}% accuracy (${result.passedTests}/${result.totalTests} passed)`,
+        { variant: 'success' }
+      );
+    }
   };
 
   return (

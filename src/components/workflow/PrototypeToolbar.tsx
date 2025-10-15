@@ -1,5 +1,5 @@
 import { Box, Button, ButtonGroup, Divider, Menu, MenuItem } from '@mui/material';
-import { Save, FolderOpen, PlayArrow, Clear, FileDownload, ViewModule } from '@mui/icons-material';
+import { Save, FolderOpen, PlayArrow, Clear, FileDownload, ViewModule, Rocket } from '@mui/icons-material';
 import { useState } from 'react';
 import EvaluationsButton from './EvaluationsButton';
 
@@ -11,6 +11,7 @@ interface PrototypeToolbarProps {
   onExport: () => void;
   onLoadTemplate: (templateId: string) => void;
   onOpenEvaluations: () => void;
+  onDeploy?: () => void;
 }
 
 export default function PrototypeToolbar({
@@ -21,13 +22,15 @@ export default function PrototypeToolbar({
   onExport,
   onLoadTemplate,
   onOpenEvaluations,
+  onDeploy,
 }: PrototypeToolbarProps) {
   const [templateMenuAnchor, setTemplateMenuAnchor] = useState<null | HTMLElement>(null);
 
   const templates = [
     { id: 'claims-detection', name: 'Claims Detection' },
     { id: 'vendor-risk', name: 'Vendor Risk Assessment' },
-    { id: 'policy-checker', name: 'Policy Violation Checker' },
+    { id: 'policy-violation', name: 'Policy Violation Detection' },
+    { id: 'evidence-collection', name: 'Evidence Collection' },
   ];
 
   return (
@@ -93,6 +96,21 @@ export default function PrototypeToolbar({
       <Box sx={{ flexGrow: 1 }} />
 
       <EvaluationsButton onClick={onOpenEvaluations} />
+
+      {onDeploy && (
+        <>
+          <Divider orientation="vertical" flexItem sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<Rocket />}
+            onClick={onDeploy}
+            sx={{ bgcolor: '#6366f1', '&:hover': { bgcolor: '#5558e3' } }}
+          >
+            Deploy to Production
+          </Button>
+        </>
+      )}
 
       <Divider orientation="vertical" flexItem sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
 

@@ -7,6 +7,13 @@ export interface WorkflowTemplate {
   category: string;
   nodes: Node[];
   edges: Edge[];
+  metadata: {
+    nodeCount: number;
+    integrations: string[];
+    baselineAccuracy: number;
+    avgLatency: number;
+    useCase: string;
+  };
 }
 
 export const workflowTemplates: Record<string, WorkflowTemplate> = {
@@ -105,6 +112,13 @@ export const workflowTemplates: Record<string, WorkflowTemplate> = {
       { id: 'e6-8', source: '6', target: '8', animated: true, type: 'editable', style: { stroke: '#6366f1', strokeWidth: 1.5 } },
       { id: 'e7-8', source: '7', target: '8', animated: true, type: 'editable', style: { stroke: '#6366f1', strokeWidth: 1.5 } },
     ],
+    metadata: {
+      nodeCount: 8,
+      integrations: ['Claude Chat Model', 'Postgres Chat Memory'],
+      baselineAccuracy: 87,
+      avgLatency: 450,
+      useCase: 'Detect misleading compliance claims',
+    },
   },
 
   'vendor-risk': {
@@ -203,6 +217,13 @@ export const workflowTemplates: Record<string, WorkflowTemplate> = {
       { id: 'e6-7', source: '6', target: '7', animated: true, type: 'editable', style: { stroke: '#6366f1', strokeWidth: 1.5 } },
       { id: 'e7-8', source: '7', target: '8', animated: true, type: 'editable', style: { stroke: '#6366f1', strokeWidth: 1.5 } },
     ],
+    metadata: {
+      nodeCount: 8,
+      integrations: ['Vendor Database', 'Security Scanner', 'Compliance API', 'Financial Data', 'Jira'],
+      baselineAccuracy: 92,
+      avgLatency: 580,
+      useCase: 'Automated third-party vendor security and compliance evaluation',
+    },
   },
 
   'access-review': {
@@ -277,6 +298,13 @@ export const workflowTemplates: Record<string, WorkflowTemplate> = {
       { id: 'e4-5', source: '4', target: '5', animated: true, type: 'editable', style: { stroke: '#6366f1', strokeWidth: 1.5 } },
       { id: 'e5-6', source: '5', target: '6', animated: true, type: 'editable', style: { stroke: '#ef4444', strokeWidth: 1.5 }, label: 'violation' },
     ],
+    metadata: {
+      nodeCount: 6,
+      integrations: ['User Directory', 'IAM Policy Engine', 'Email/Slack'],
+      baselineAccuracy: 88,
+      avgLatency: 420,
+      useCase: 'Quarterly user access and permissions review automation',
+    },
   },
 
   'policy-violation': {
@@ -351,6 +379,13 @@ export const workflowTemplates: Record<string, WorkflowTemplate> = {
       { id: 'e4-5', source: '4', target: '5', animated: true, type: 'editable', style: { stroke: '#ef4444', strokeWidth: 1.5 }, label: 'found' },
       { id: 'e5-6', source: '5', target: '6', animated: true, type: 'editable', style: { stroke: '#6366f1', strokeWidth: 1.5 } },
     ],
+    metadata: {
+      nodeCount: 6,
+      integrations: ['Policy Engine', 'Audit Logger', 'Alert System'],
+      baselineAccuracy: 91,
+      avgLatency: 380,
+      useCase: 'Real-time policy violation detection and alerting',
+    },
   },
 
   'evidence-collection': {
@@ -405,5 +440,12 @@ export const workflowTemplates: Record<string, WorkflowTemplate> = {
       { id: 'e2-3', source: '2', target: '3', animated: true, type: 'editable', style: { stroke: '#6366f1', strokeWidth: 1.5 } },
       { id: 'e3-4', source: '3', target: '4', animated: true, type: 'editable', style: { stroke: '#6366f1', strokeWidth: 1.5 } },
     ],
+    metadata: {
+      nodeCount: 4,
+      integrations: ['Evidence Validator', 'Storage', 'Audit Logger'],
+      baselineAccuracy: 85,
+      avgLatency: 320,
+      useCase: 'Automated evidence gathering and validation workflow',
+    },
   },
 };

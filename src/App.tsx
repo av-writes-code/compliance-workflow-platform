@@ -1,7 +1,8 @@
 import { Routes, Route } from 'react-router-dom';
 import { Box, AppBar, Toolbar, Typography, Tabs, Tab, Chip } from '@mui/material';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { initializeDemoData } from './utils/demoDataStore';
 import { Science, Rocket } from '@mui/icons-material';
 import Dashboard from './pages/Dashboard';
 import PrototypeStation from './pages/PrototypeStation';
@@ -15,6 +16,11 @@ function App() {
   const location = useLocation();
 
   const currentTab = location.pathname === '/' ? '/dashboard' : location.pathname;
+
+  // Initialize demo data on mount
+  useEffect(() => {
+    initializeDemoData();
+  }, []);
 
   // Determine environment badge
   const getEnvironmentBadge = () => {

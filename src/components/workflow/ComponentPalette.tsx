@@ -25,10 +25,10 @@ const componentCategories = [
   },
   {
     name: 'Chat Models',
-    description: 'Direct LLM model calls with OpenAI, Anthropic, or custom providers',
+    description: 'Direct LLM model calls with Claude (Anthropic), OpenAI, or custom providers',
     items: [
+      { id: 'claude-chat', label: 'Claude Chat Model', icon: <SmartToy />, type: 'chat-model' },
       { id: 'openai-chat', label: 'OpenAI Chat Model', icon: <SmartToy />, type: 'chat-model' },
-      { id: 'anthropic-chat', label: 'Anthropic Chat Model', icon: <SmartToy />, type: 'chat-model' },
       { id: 'custom-llm', label: 'Custom LLM', icon: <SmartToy />, type: 'chat-model' },
     ],
   },

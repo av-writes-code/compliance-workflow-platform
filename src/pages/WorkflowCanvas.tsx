@@ -470,7 +470,9 @@ export default function WorkflowCanvas({
           height: '100%',
           overflow: 'hidden',
           zIndex: 0
-        }}>
+        }}
+        data-testid="workflow-canvas"
+      >
           <ReactFlow
             nodes={nodes}
             edges={edges}
